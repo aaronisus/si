@@ -815,28 +815,59 @@ function goInside() {
   startReading();
 }
 
+// Cada párrafo aparece cuando entra en pantalla al hacer scroll (sin temporizador).
+// Si alguien baja rápido, los párrafos que ya quedaron por encima se muestran directamente.
 function startReading() {
-  const queue = [];
-  let busy = false;
-  const pump = () => {
-    if (busy || !queue.length) return;
-    busy = true;
-    queue.sort((a, b) => reveal.indexOf(a) - reveal.indexOf(b));
-    const p = queue.shift();
-    const sign = p.classList.contains('signoff');
-    if (sign) Sound.signoff();
-    G.to(p, {opacity: 1, y: 0, duration: reduce ? .6 : (sign ? 2.4 : 1.7), ease: 'power2.out'});
-    G.delayedCall(reduce ? .2 : .9, () => { busy = false; pump(); });
+  const shown = new Set();
+  const fades = new Map(); // fundidos en curso, por párrafo
+  // se sigue vigilando el párrafo hasta que está del todo visible: si ella lo sobrepasa
+  // a medio fundir, el observador lo detecta y lo completa al instante
+  const markShown = p => {
+    shown.add(p);
+    if (p.classList.contains('signoff')) Sound.signoff();
   };
+  // entra en pantalla: aparece con un fundido suave
+  const fadeIn = (p, delay) => {
+    if (shown.has(p)) return;
+    markShown(p);
+    const sign = p.classList.contains('signoff');
+    fades.set(p, G.to(p, {opacity: 1, y: 0, duration: sign ? 2.4 : 1.6, delay, ease: 'power2.out',
+      onComplete: () => { fades.delete(p); io.unobserve(p); }}));
+  };
+  // ya pasó de largo (quedó por encima): se muestra al instante,
+  // también si estaba a medio fundido cuando ella bajó de golpe
+  const showNow = p => {
+    const fade = fades.get(p);
+    if (fade) { fade.progress(1); return; }   // completa el fundido (su onComplete deja de vigilarlo)
+    if (shown.has(p)) return;
+    markShown(p);
+    io.unobserve(p);
+    G.set(p, {opacity: 1, y: 0});
+  };
+  const passed = p => p.getBoundingClientRect().bottom < 0 && (!shown.has(p) || fades.has(p));
+
   const io = new IntersectionObserver(entries => {
-    entries.forEach(e => {
-      if (!e.isIntersecting) return;
-      io.unobserve(e.target);
-      queue.push(e.target);
-    });
-    pump();
-  }, {rootMargin: '0px 0px -6% 0px'});
+    // los que entran a la vez (p. ej. al llegar a la carta) se escalonan un poco, en orden
+    const entering = entries.filter(e => e.isIntersecting)
+      .sort((a, b) => reveal.indexOf(a.target) - reveal.indexOf(b.target));
+    entering.forEach((e, i) => fadeIn(e.target, i * .18));
+    entries.forEach(e => { if (!e.isIntersecting && e.boundingClientRect.bottom < 0) showNow(e.target); });
+  }, {rootMargin: '0px 0px -8% 0px'});
   reveal.forEach(p => io.observe(p));
+
+  // con un scroll muy rápido un párrafo puede saltar de abajo a arriba sin llegar a «entrar»:
+  // en cada scroll se muestran al instante los que ya están por encima de la pantalla
+  let ticking = false;
+  function onScroll() {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      ticking = false;
+      reveal.forEach(p => { if (passed(p)) showNow(p); });
+      if (shown.size === reveal.length && !fades.size) removeEventListener('scroll', onScroll);
+    });
+  }
+  addEventListener('scroll', onScroll, {passive: true});
 }
 </script>
 </body>
