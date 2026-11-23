@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#060405">
 <meta name="color-scheme" content="dark">
 <meta name="robots" content="noindex">
-<title>para ti 🌸</title>
+<title>para ti</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🌸%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -89,6 +89,16 @@
     font-family:"Instrument Serif", Georgia, serif;font-style:italic;font-weight:400;
     font-size:2.9rem;line-height:1;color:var(--ember);text-shadow:0 0 24px rgba(0,0,0,.9)}
 
+  /* botón de silencio: aparece tras el toque, discreto en una esquina */
+  .mute{position:fixed;z-index:10;right:calc(env(safe-area-inset-right) + 14px);bottom:calc(env(safe-area-inset-bottom) + 14px);
+    width:44px;height:44px;margin:0;padding:0;border-radius:50%;border:1px solid rgba(233,228,225,.16);
+    background:rgba(6,4,5,.4);color:var(--ash-dim);display:grid;place-items:center;cursor:pointer;
+    visibility:hidden;opacity:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+  .mute:focus-visible{outline:1px solid var(--ash-dim);outline-offset:3px}
+  .mute .cross{display:none}
+  .mute[aria-pressed="true"] .waves{display:none}
+  .mute[aria-pressed="true"] .cross{display:inline}
+
   html.inside .tap, html.inside .gl, html.inside .glow{display:none}
   html.inside .letter{display:block}
 
@@ -113,15 +123,28 @@
 <button class="tap" type="button" aria-label="Toca la flor para abrirla">
   <span class="hint" aria-hidden="true">tócala</span>
 </button>
+<button class="mute" type="button" aria-label="Silenciar el sonido" aria-pressed="false">
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/>
+    <path class="waves" d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.6 7.6 0 0 1 0 11"/>
+    <path class="cross" d="M16 9.5l5 5M21 9.5l-5 5"/>
+  </svg>
+</button>
 
 <main class="letter">
   <div class="letter-inner">
     <!-- ✏️ AQUÍ VA TU TEXTO: un <p> por párrafo. Puedes poner tantos como quieras. -->
-    <p>Este es un párrafo de ejemplo. Aquí irá lo primero que quieras decirle, con calma, sin prisa.</p>
-    <p>Puedes escribir todo lo que necesites: la página se adapta y aparecerá párrafo a párrafo, a medida que ella vaya bajando. Las tildes y la eñe se ven bien: mañana, corazón, también, pequeña.</p>
-    <p>Otro párrafo de prueba, algo más largo, para comprobar que las líneas respiran en la pantalla de un móvil y que nada se corta por los lados, ni siquiera con palabras como extraordinariamente.</p>
-    <p>Y un último párrafo antes de la firma.</p>
-    <p class="signoff">Aarón</p>
+<p>Llevo tiempo dándole vueltas a cómo decirte esto, así que voy a empezar por el principio.</p>
+<p class="date">20/6/26</p>
+<p>Cuando te conocí, no voy a negar que me llamaste la atención. Pero te veía como alguien inalcanzable, así que ni me planteé intentarlo y seguí con lo mío.</p>
+<p class="date">21/7/26</p>
+<p>Luego llegaron las fiestas de Bouzas. Te vi sola junto a la iglesia, nos pusimos a hablar y me contaste cosas de ti que no esperaba. Cuando me hablaste de tu timidez y de lo que te cuesta a veces decir que no, me vi a mí mismo, al de hace unos años y en parte al de ahora. Y cuando me dijiste que en su momento yo había sido un ejemplo para ti, no supe ni qué decir.</p>
+<p>Después vinieron las conversaciones sobre anime, la música que nos gusta a los dos, y cada vez tenía más ganas de hablar contigo. Y sin darme cuenta, me enamoré de ti.</p>
+<p>Sé que somos amigos y que nunca hemos hablado de esto. Y sé que no es lo más valiente decírtelo así y no a la cara, pero me cuesta mucho expresar estas cosas en persona, y esta es mi forma de hacerlo de verdad.</p>
+<p>Así que sí, me estoy declarando. Pero no te pido que decidas nada ahora. Lo que me gustaría es conocerte de otra forma, más allá de la amistad, con calma y sin prisa.</p>
+<p>Y quiero que sepas algo: puedes decirme que no, de verdad. No pasaría nada, y nuestra amistad seguiría igual. Prefiero mil veces tu sinceridad a que me digas que sí por no hacerme daño.</p>
+<p>Si te apetece, cuando tú quieras, podemos quedar y hablarlo con más calma. Y si te resulta más fácil contestarme primero por mensaje, también está bien. Lo más difícil, que era contarte lo que siento, ya está hecho.</p>
+<p class="signoff">Aarón</p>
   </div>
 </main>
 <div class="layer flash" aria-hidden="true"></div>
@@ -129,7 +152,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script>
-  // Si en 10 s no ha arrancado el 3D (sin WebGL, sin conexión al CDN...), se muestra la carta directamente.
+  // Si en 10 s no ha arrancado el 3D se muestra el texto directamente.
   window.__noFlower = () => { document.documentElement.classList.add('no-3d'); document.documentElement.classList.remove('locked'); };
   setTimeout(() => { if (!window.__flowerReady) window.__noFlower(); }, 10000);
 </script>
@@ -149,6 +172,214 @@ const tap = $('.tap'), hint = $('.hint'), glowEl = $('.glow'), canvas = $('.gl')
 const ambient = $('.ambient'), rains = document.querySelectorAll('.rain');
 const interior = $('.interior'), fx = $('.fx'), flash = $('.flash');
 const reveal = [...document.querySelectorAll('.letter p')];
+const muteBtn = $('.mute');
+
+// ---------- sonido: todo generado con Web Audio (sin archivos) ----------
+// Solo empieza con el toque de ella (los navegadores no permiten audio antes de una interacción).
+const Sound = (() => {
+  let ctx, master, bus, seqBus, rainGain, muted = false;
+  const noiseBuffer = (secs) => {
+    const b = ctx.createBuffer(1, ctx.sampleRate * secs, ctx.sampleRate);
+    const d = b.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    return b;
+  };
+  const reverbIR = (secs, decay) => {
+    const len = ctx.sampleRate * secs, b = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let c = 0; c < 2; c++) {
+      const d = b.getChannelData(c);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+    }
+    return b;
+  };
+
+  function start() {
+    if (ctx) return;
+    try {
+      // en iPhone recientes, que suene aunque el interruptor de silencio esté activado
+      if (navigator.audioSession) navigator.audioSession.type = 'playback';
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) { return; }
+    ctx.resume();
+
+    // salida: compresor suave → altavoz; bus = mezcla seca + reverberación larga
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -18; comp.ratio.value = 3;
+    comp.connect(ctx.destination);
+    master = ctx.createGain(); master.gain.value = 0; master.connect(comp);
+    master.gain.linearRampToValueAtTime(.85, ctx.currentTime + .4);
+    bus = ctx.createGain();
+    const dry = ctx.createGain(); dry.gain.value = .65;
+    const verb = ctx.createConvolver(); verb.buffer = reverbIR(4.5, 2.4);
+    const wet = ctx.createGain(); wet.gain.value = .6;
+    bus.connect(dry).connect(master);
+    bus.connect(verb).connect(wet).connect(master);
+    seqBus = ctx.createGain(); seqBus.connect(bus); // la pieza con pulso: se funde en la zambullida
+
+    // lluvia: ruido filtrado, con una respiración muy lenta de volumen
+    const rain = ctx.createBufferSource(); rain.buffer = noiseBuffer(3); rain.loop = true;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 800;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 6500;
+    rainGain = ctx.createGain(); rainGain.gain.value = 0;
+    rain.connect(hp).connect(lp).connect(rainGain).connect(master);
+    const lfo = ctx.createOscillator(); lfo.frequency.value = .11;
+    const lfoAmt = ctx.createGain(); lfoAmt.gain.value = .012;
+    lfo.connect(lfoAmt).connect(rainGain.gain);
+    rain.start(); lfo.start();
+    rainGain.gain.linearRampToValueAtTime(.075, ctx.currentTime + 2.5);
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) ctx.suspend(); else ctx.resume();
+    });
+    G.to(muteBtn, {autoAlpha: 1, duration: 1, delay: .6});
+  }
+
+  // nota de piano lejano: varios armónicos con ataque rápido y caída larga
+  function note(freq, when = 0, vol = .16, dur = 5, out = bus) {
+    if (!ctx) return;
+    const t = ctx.currentTime + when;
+    const g = ctx.createGain();
+    const tone = ctx.createBiquadFilter(); tone.type = 'lowpass'; tone.frequency.value = 2400;
+    g.connect(tone).connect(out);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + .012);
+    g.gain.exponentialRampToValueAtTime(vol * .3, t + .5);
+    g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    [[1, 1], [2, .32], [3, .1], [4.02, .04]].forEach(([m, a]) => {
+      const o = ctx.createOscillator(), og = ctx.createGain();
+      o.frequency.value = freq * m; o.detune.value = (Math.random() - .5) * 6;
+      og.gain.value = a;
+      o.connect(og).connect(g);
+      o.start(t); o.stop(t + dur + .1);
+    });
+  }
+  const chord = (freqs, when, vol, dur) => freqs.forEach((f, i) => note(f, when + i * .045, vol, dur));
+
+  // latido grave y corto en los tiempos fuertes
+  function thump(when, vol = .2) {
+    const t = ctx.currentTime + when;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.setValueAtTime(95, t);
+    o.frequency.exponentialRampToValueAtTime(48, t + .18);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + .008);
+    g.gain.exponentialRampToValueAtTime(.0001, t + .3);
+    o.connect(g).connect(seqBus);
+    o.start(t); o.stop(t + .35);
+  }
+
+  const A2 = 110, E3 = 164.81, A3 = 220, C4 = 261.63, E4 = 329.63, G4 = 392, B4 = 493.88;
+  const f = (midi) => 440 * Math.pow(2, (midi - 69) / 12);
+
+  // golpes de ruido filtrado: charles (agudo y corto) y palmada (media y algo más larga)
+  let noiseBuf;
+  function hit(when, type, vol) {
+    const t = ctx.currentTime + when;
+    noiseBuf = noiseBuf || noiseBuffer(1);
+    const src = ctx.createBufferSource(); src.buffer = noiseBuf;
+    const flt = ctx.createBiquadFilter(), g = ctx.createGain();
+    if (type === 'hat') { flt.type = 'highpass'; flt.frequency.value = 7500; }
+    else { flt.type = 'bandpass'; flt.frequency.value = 1400; flt.Q.value = .9; }
+    const len = type === 'hat' ? .06 : .16;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + .003);
+    g.gain.exponentialRampToValueAtTime(.0001, t + len);
+    src.connect(flt).connect(g).connect(seqBus);
+    src.start(t, Math.random() * .5); src.stop(t + len + .02);
+  }
+  // bajo con algo de cuerpo: triángulo filtrado, corto
+  function bassNote(freq, when, vol = .13, len = .22) {
+    const t = ctx.currentTime + when;
+    const o = ctx.createOscillator(), flt = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = 'triangle'; o.frequency.value = freq;
+    flt.type = 'lowpass'; flt.frequency.value = 600;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + .01);
+    g.gain.exponentialRampToValueAtTime(.0001, t + len);
+    o.connect(flt).connect(g).connect(seqBus);
+    o.start(t); o.stop(t + len + .05);
+  }
+
+  // Pieza original en clave de deep house, a 124 BPM: bombo a negras, charles a contratiempo,
+  // palmada en 2 y 4, acordes de piano cortados y sincopados que «bombean» con cada bombo,
+  // y un bajo que responde entre golpes. Progresión propia: La menor – Fa – Do – Sol.
+  function groove() {
+    if (!ctx) return;
+    const beat = 60 / 124, six = beat / 4, bar = beat * 4;
+    const CHORDS = [ // [bajo, acorde] en MIDI
+      [45, [57, 60, 64, 67]], // La menor 7
+      [41, [57, 60, 65, 69]], // Fa maj7 (con la en la base)
+      [48, [55, 60, 64, 67]], // Do
+      [43, [55, 59, 62, 67]], // Sol
+    ];
+    const STABS = [0, 3, 6, 10, 12, 14];   // posiciones de semicorchea del piano: síncopa típica de house
+    const BASS  = [2, 6, 7, 10, 14];        // el bajo cae entre los golpes del bombo
+    // los acordes pasan por un «bombeo»: se agachan en cada bombo y vuelven a subir
+    const pump = ctx.createGain(); pump.connect(seqBus);
+    seqBus.gain.setValueAtTime(.0001, ctx.currentTime);
+    seqBus.gain.exponentialRampToValueAtTime(1, ctx.currentTime + .5);
+    // cada compás se programa un momento antes de sonar (no todo de golpe: más ligero en el móvil)
+    const base = ctx.currentTime + .12;
+    CHORDS.forEach(([root, chordNotes], b) => {
+      G.delayedCall(Math.max(0, b * bar - .4), () => {
+        const t0 = base + b * bar - ctx.currentTime; // instante del compás, relativo a «ahora»
+        for (let q = 0; q < 4; q++) {
+          const tb = t0 + q * beat;
+          thump(tb, .24);
+          hit(tb + beat / 2, 'hat', .05);                     // charles a contratiempo
+          if (q === 1 || q === 3) hit(tb, 'clap', .06);         // palmada en 2 y 4
+          const pt = ctx.currentTime + tb;
+          pump.gain.setValueAtTime(.3, pt);
+          pump.gain.linearRampToValueAtTime(1, pt + beat * .55);
+        }
+        STABS.forEach((s, i) => chordNotes.forEach(n =>
+          note(f(n), t0 + s * six, i === 0 ? .055 : .045, .55, pump)));
+        BASS.forEach(s => bassNote(f(root), t0 + s * six));
+      });
+    });
+  }
+
+  return {
+    start,
+    groove,
+    stamens: () => { note(1318.5, 0, .035, 3.5); note(1975.5, .18, .025, 3); },
+    // la zambullida: un soplo de aire que crece y un golpe grave al llegar
+    dive: () => {
+      if (!ctx) return;
+      const t = ctx.currentTime;
+      const src = ctx.createBufferSource(); src.buffer = noiseBuffer(2.5);
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.1;
+      bp.frequency.setValueAtTime(220, t);
+      bp.frequency.exponentialRampToValueAtTime(2600, t + 1.8);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(.26, t + 1.7);
+      g.gain.exponentialRampToValueAtTime(.0001, t + 2.3);
+      src.connect(bp).connect(g); g.connect(master); g.connect(bus);
+      src.start(t); src.stop(t + 2.5);
+      const sub = ctx.createOscillator(), sg = ctx.createGain();
+      sub.frequency.setValueAtTime(72, t + 1.85);
+      sub.frequency.exponentialRampToValueAtTime(38, t + 3.2);
+      sg.gain.setValueAtTime(0, t + 1.85);
+      sg.gain.linearRampToValueAtTime(.3, t + 1.92);
+      sg.gain.exponentialRampToValueAtTime(.0001, t + 3.4);
+      sub.connect(sg).connect(master);
+      sub.start(t + 1.85); sub.stop(t + 3.5);
+      rainGain.gain.setTargetAtTime(.022, t + 1.2, .6); // dentro de la flor, la lluvia queda lejana
+      seqBus.gain.setTargetAtTime(.0001, t + .3, .45);  // la pieza se funde en el soplo
+    },
+    inside: () => chord([A3, E4, B4], .4, .05, 6),
+    signoff: () => chord([A2, E3, C4, E4, B4], 0, .09, 8),
+    toggle() {
+      if (!ctx) return;
+      muted = !muted;
+      master.gain.setTargetAtTime(muted ? 0 : .85, ctx.currentTime, .12);
+      muteBtn.setAttribute('aria-pressed', String(muted));
+      muteBtn.setAttribute('aria-label', muted ? 'Activar el sonido' : 'Silenciar el sonido');
+    },
+  };
+})();
+muteBtn.addEventListener('click', e => { e.stopPropagation(); Sound.toggle(); });
 
 let renderer;
 try {
@@ -434,6 +665,7 @@ tap.addEventListener('click', open);
 function open() {
   if (opened) return;
   opened = true;
+  Sound.start(); // dentro del propio toque: es lo que permite al navegador reproducir audio
   tap.setAttribute('aria-disabled', 'true');
   idle.forEach(t => t.kill());
   reduce ? openReduced() : openFull();
@@ -460,6 +692,7 @@ function openFull() {
       .to(p, {curlT: 1, duration: 2.1, ease: 'power2.inOut', onUpdate: touch(p)}, t + .35);
     bloomEnd = Math.max(bloomEnd, t + 2.45);
   });
+  tl.add(Sound.groove, 0).add(Sound.stamens, 1.4);
   // los estambres crecen desde el centro
   stamens.forEach((s, i) => {
     const t = 1.3 + i * .08;
@@ -480,6 +713,7 @@ function openFull() {
   // y desciende por el eje hasta el corazón de la flor
   tl.addLabel('dive', 'orbit+=2.9')
     .to(cam, {dist: .06, ty: .04, duration: 2, ease: 'power3.in'}, 'dive')
+    .add(Sound.dive, 'dive')
     .to(flash, {keyframes: {opacity: [0, .1, 0]}, duration: .5, ease: 'none'}, 'dive+=1.55')
     .to([canvas, glowEl], {opacity: 0, duration: .6, ease: 'power1.in'}, 'dive+=1.45')
     .to([ambient, ...rains], {opacity: 0, duration: 1, ease: 'power2.in'}, 'dive+=.6')
@@ -559,6 +793,7 @@ function embers() {
 
 // ---------- dentro de la flor ----------
 function goInside() {
+  Sound.inside();
   // el 3D ya no se ve: se detiene y se libera la memoria de la GPU
   running = false;
   G.ticker.remove(render);
@@ -589,6 +824,7 @@ function startReading() {
     queue.sort((a, b) => reveal.indexOf(a) - reveal.indexOf(b));
     const p = queue.shift();
     const sign = p.classList.contains('signoff');
+    if (sign) Sound.signoff();
     G.to(p, {opacity: 1, y: 0, duration: reduce ? .6 : (sign ? 2.4 : 1.7), ease: 'power2.out'});
     G.delayedCall(reduce ? .2 : .9, () => { busy = false; pump(); });
   };
