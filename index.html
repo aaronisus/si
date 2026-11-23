@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="es" class="locked">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#060405">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex">
+<title>para ti 🌸</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🌸%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&family=Spectral:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<!-- solo los tres caracteres de 彼岸花 -->
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500&text=%E5%BD%BC%E5%B2%B8%E8%8A%B1&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#060405;
+    --ember:#e0414f;
+    --ash:#e9e4e1;
+    --ash-dim:#a39b98;
+    --gutter:max(26px, env(safe-area-inset-left), env(safe-area-inset-right));
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html{background:var(--void);-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  html.locked, html.locked body{overflow:hidden;height:100%}
+  body{
+    margin:0;min-height:100vh;min-height:100dvh;background:var(--void);color:var(--ash);
+    font-family:"Spectral", Georgia, serif;font-weight:300;
+    -webkit-font-smoothing:antialiased;overflow-x:hidden;-webkit-tap-highlight-color:transparent;
+  }
+
+  /* ---------- capas de ambiente ---------- */
+  .layer{position:fixed;pointer-events:none}
+  .ambient{inset:-4%;z-index:0;
+    background:
+      radial-gradient(ellipse 90% 60% at 50% 46%, rgba(6,4,5,.15), rgba(6,4,5,.75) 100%),
+      linear-gradient(rgba(6,4,5,.35), rgba(6,4,5,.55)),
+      url(assets/ambiente.jpg) center/cover no-repeat;
+    animation:kenburns 30s ease-in-out infinite alternate}
+  @keyframes kenburns{from{transform:scale(1)}to{transform:scale(1.07)}}
+
+  .rain{top:-60%;left:-60%;width:220%;height:220%;z-index:1;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='220'%3E%3Cpath d='M18 4v30M66 70v20M118 128v38M92 12v16M38 150v26M142 44v24M60 196v18' stroke='%23dfe4ec' stroke-width='1' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-size:160px 220px;opacity:.16;will-change:transform;
+    animation:rain1 .55s linear infinite}
+  .rain.far{background-size:110px 151px;opacity:.09;animation:rain2 .9s linear infinite}
+  @keyframes rain1{from{transform:rotate(11deg) translate3d(0,-220px,0)}to{transform:rotate(11deg) translate3d(0,0,0)}}
+  @keyframes rain2{from{transform:rotate(11deg) translate3d(0,-151px,0)}to{transform:rotate(11deg) translate3d(0,0,0)}}
+
+  .glow{left:50%;top:50%;z-index:2;width:90vmin;height:90vmin;margin:-45vmin 0 0 -45vmin;border-radius:50%;
+    background:radial-gradient(closest-side, rgba(205,24,50,.36), rgba(120,10,28,.13) 58%, rgba(120,10,28,0))}
+  .interior{inset:0;z-index:1;opacity:0;
+    background:
+      radial-gradient(ellipse 95% 62% at 50% 50%, rgba(5,2,3,.72), rgba(5,2,3,.25) 70%, rgba(5,2,3,0) 100%),
+      url(assets/interior.jpg) center/cover no-repeat}
+  .gl{position:fixed;inset:0;z-index:3;width:100%;height:100%;display:block;pointer-events:none}
+  .fx{inset:0;z-index:4;overflow:hidden}
+  .fall{position:absolute;left:0;top:0;width:var(--w,6px);height:calc(var(--w,6px) * 1.9);
+    border-radius:50% 50% 50% 50% / 70% 70% 30% 30%;background:linear-gradient(180deg, #d2283f, #4a0610)}
+  .ink{position:absolute;left:0;top:0;width:var(--w,8px);height:var(--w,8px);
+    border-radius:52% 46% 50% 48%;background:radial-gradient(circle at 35% 35%, #c3203a, #3a050d 72%)}
+  .ember{position:absolute;left:0;top:0;width:3px;height:3px;border-radius:50%;
+    background:#ff5a6a;box-shadow:0 0 6px 1px rgba(255,60,80,.55)}
+  .flash{inset:0;z-index:8;background:#9e0f27;opacity:0}
+  .grain{inset:0;z-index:9;opacity:.08;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+  .kanji{position:fixed;z-index:7;margin:0;pointer-events:none;
+    top:calc(env(safe-area-inset-top) + 22px);right:calc(env(safe-area-inset-right) + 16px);
+    writing-mode:vertical-rl;font-family:"Shippori Mincho", serif;font-weight:500;
+    font-size:15px;letter-spacing:.55em;color:#c22a3c;opacity:.75}
+
+  /* toda la pantalla es la zona para tocar */
+  .tap{position:fixed;inset:0;z-index:6;margin:0;padding:0;border:0;background:none;color:inherit;font:inherit;
+    cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+  .tap:focus-visible{outline:none}
+  .tap:focus-visible .hint{color:var(--ash);text-decoration:underline;text-underline-offset:6px}
+  .hint{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 7dvh);
+    text-align:center;font-style:italic;font-size:.95rem;letter-spacing:.1em;color:var(--ash-dim);opacity:0}
+
+  /* ---------- la carta, dentro de la flor ---------- */
+  .letter{display:none;position:relative;z-index:5;
+    padding:30dvh var(--gutter) calc(32dvh + env(safe-area-inset-bottom))}
+  .letter-inner{max-width:30rem;margin:0 auto}
+  .letter p{margin:0 0 1.4em;font-size:1.125rem;line-height:1.8;
+    text-wrap:pretty;overflow-wrap:break-word;text-shadow:0 1px 14px rgba(0,0,0,.85), 0 0 2px rgba(0,0,0,.6)}
+  .letter .signoff{margin:3.2rem 0 0;text-align:right;
+    font-family:"Instrument Serif", Georgia, serif;font-style:italic;font-weight:400;
+    font-size:2.9rem;line-height:1;color:var(--ember);text-shadow:0 0 24px rgba(0,0,0,.9)}
+
+  html.inside .tap, html.inside .gl, html.inside .glow{display:none}
+  html.inside .letter{display:block}
+
+  /* sin 3D (navegador sin WebGL o sin conexión al CDN): directamente la carta */
+  html.no-3d .tap, html.no-3d .gl, html.no-3d .glow{display:none}
+  html.no-3d .interior{opacity:1}
+  html.no-3d .letter{display:block}
+  html.no-3d .letter p{opacity:1 !important;transform:none !important}
+
+  @media (prefers-reduced-motion: reduce){
+    .ambient,.rain{animation:none}
+    .rain{transform:rotate(11deg)}
+  }
+</style>
+</head>
+<body>
+<div class="layer ambient" aria-hidden="true"></div>
+<div class="layer rain far" aria-hidden="true"></div>
+<div class="layer rain" aria-hidden="true"></div>
+<div class="layer interior" aria-hidden="true"></div>
+<div class="layer glow" aria-hidden="true"></div>
+<canvas class="gl" aria-hidden="true"></canvas>
+<div class="layer fx" aria-hidden="true"></div>
+<p class="kanji" aria-hidden="true">彼岸花</p>
+
+<button class="tap" type="button" aria-label="Toca la flor para abrirla">
+  <span class="hint" aria-hidden="true">tócala</span>
+</button>
+
+<main class="letter">
+  <div class="letter-inner">
+    <!-- ✏️ AQUÍ VA TU TEXTO: un <p> por párrafo. Puedes poner tantos como quieras. -->
+    <p>Este es un párrafo de ejemplo. Aquí irá lo primero que quieras decirle, con calma, sin prisa.</p>
+    <p>Puedes escribir todo lo que necesites: la página se adapta y aparecerá párrafo a párrafo, a medida que ella vaya bajando. Las tildes y la eñe se ven bien: mañana, corazón, también, pequeña.</p>
+    <p>Otro párrafo de prueba, algo más largo, para comprobar que las líneas respiran en la pantalla de un móvil y que nada se corta por los lados, ni siquiera con palabras como extraordinariamente.</p>
+    <p>Y un último párrafo antes de la firma.</p>
+    <p class="signoff">Aarón</p>
+  </div>
+</main>
+<div class="layer flash" aria-hidden="true"></div>
+<div class="layer grain" aria-hidden="true"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script>
+  // Si en 10 s no ha arrancado el 3D (sin WebGL, sin conexión al CDN...), se muestra la carta directamente.
+  window.__noFlower = () => { document.documentElement.classList.add('no-3d'); document.documentElement.classList.remove('locked'); };
+  setTimeout(() => { if (!window.__flowerReady) window.__noFlower(); }, 10000);
+</script>
+<script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+const root = document.documentElement;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const G = window.gsap;
+const $ = s => document.querySelector(s);
+const tap = $('.tap'), hint = $('.hint'), glowEl = $('.glow'), canvas = $('.gl');
+const ambient = $('.ambient'), rains = document.querySelectorAll('.rain');
+const interior = $('.interior'), fx = $('.fx'), flash = $('.flash');
+const reveal = [...document.querySelectorAll('.letter p')];
+
+let renderer;
+try {
+  if (!G) throw new Error('sin GSAP');
+  renderer = new THREE.WebGLRenderer({canvas, alpha: true, antialias: true, powerPreference: 'high-performance'});
+} catch (e) { window.__noFlower(); throw e; }
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.LinearSRGBColorSpace; // los colores de las acuarelas pasan tal cual
+renderer.setClearColor(0x000000, 0);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, 1, .01, 60);
+const flower = new THREE.Group();
+scene.add(flower);
+
+// ---------- materiales: acuarela con luz suave; el envés de los pétalos, más oscuro ----------
+const LIGHT = new THREE.Vector3(.35, .75, .55).normalize();
+const VERT = `varying vec2 vUv; varying vec3 vN;
+  void main(){ vUv = uv; vN = normalize(normalMatrix * normal);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`;
+// Pétalos: las líneas de la acuarela (vetas y tinta) se usan como relieve —son surcos— y una luz
+// con brillo satinado y borde rojizo hace que ese relieve se note al moverse.
+const petalMaterial = tex => new THREE.ShaderMaterial({
+  uniforms: {map: {value: tex}, uLight: {value: LIGHT}, uBump: {value: .5}},
+  vertexShader: `varying vec2 vUv; varying vec3 vN; varying vec3 vView;
+    void main(){ vUv = uv; vN = normalize(normalMatrix * normal);
+      vec4 mv = modelViewMatrix * vec4(position, 1.); vView = -mv.xyz;
+      gl_Position = projectionMatrix * mv; }`,
+  fragmentShader: `uniform sampler2D map; uniform vec3 uLight; uniform float uBump;
+    varying vec2 vUv; varying vec3 vN; varying vec3 vView;
+    // relieve generado por código, solo a gran escala: un surco suave en el nervio central y
+    // un abombado hacia los bordes (las vetas ya están pintadas en la acuarela)
+    float height(vec2 uv){
+      float u = (uv.x - .48) / .46;                     // de un borde (-0,5) al otro (0,5)
+      float midrib = exp(-pow(u / .1, 2.));
+      float swell = 1. - pow(abs(u) * 2., 2.);
+      return swell * .6 - midrib;
+    }
+    // relieve a partir de la textura con derivadas de pantalla (mismo método que el bumpMap de three.js)
+    vec3 bumpNormal(vec3 pos, vec3 n, float face){
+      vec2 dx = dFdx(vUv), dy = dFdy(vUv);
+      vec2 dH = uBump * vec2(height(vUv + dx * 2.) - height(vUv - dx * 2.),
+                             height(vUv + dy * 2.) - height(vUv - dy * 2.)) * .25;
+      vec3 sx = dFdx(pos), sy = dFdy(pos);
+      vec3 r1 = cross(sy, n), r2 = cross(n, sx);
+      float det = dot(sx, r1) * face;
+      vec3 grad = sign(det) * (dH.x * r1 + dH.y * r2);
+      return normalize(abs(det) * n - grad);
+    }
+    void main(){
+      vec4 t = texture2D(map, vUv);
+      if (t.a < .45) discard;
+      float face = gl_FrontFacing ? 1. : -1.;
+      vec3 n = normalize(vN) * face;
+      n = bumpNormal(-vView, n, face);
+      vec3 V = normalize(vView);
+      float diff = max(dot(n, uLight), 0.);
+      float spec = pow(max(dot(reflect(-uLight, n), V), 0.), 22.);
+      float rim = pow(1. - max(dot(n, V), 0.), 3.);
+      vec3 c = t.rgb * (.46 + .72 * diff);
+      c += vec3(1., .82, .82) * spec * .12;         // brillo satinado sobre los relieves
+      c += vec3(.55, .05, .1) * rim * .22;          // borde rojizo
+      if (!gl_FrontFacing) c *= vec3(.62, .56, .58); // envés más apagado
+      gl_FragColor = vec4(c, 1.);
+    }`,
+  side: THREE.DoubleSide,
+});
+const solidMaterial = hex => new THREE.ShaderMaterial({
+  uniforms: {uColor: {value: new THREE.Color(hex)}, uLight: {value: LIGHT}},
+  vertexShader: VERT,
+  fragmentShader: `uniform vec3 uColor; uniform vec3 uLight; varying vec3 vN;
+    void main(){ vec3 n = normalize(vN); if (!gl_FrontFacing) n = -n;
+      gl_FragColor = vec4(uColor * (.55 + .5 * max(dot(n, uLight), 0.)), 1.); }`,
+  side: THREE.DoubleSide,
+});
+
+// ---------- pétalos: tiras flexibles con la acuarela como textura ----------
+const NU = 10, NS = 48;
+function petalGeometry(flipU) {
+  const g = new THREE.BufferGeometry();
+  const n = (NU + 1) * (NS + 1);
+  const uv = new Float32Array(n * 2), idx = [];
+  for (let j = 0; j <= NS; j++) for (let i = 0; i <= NU; i++) {
+    const k = j * (NU + 1) + i;
+    const u = flipU ? 1 - i / NU : i / NU;
+    uv[k * 2] = .25 + u * .46;               // recorte horizontal del pétalo en la imagen
+    uv[k * 2 + 1] = .042 + (j / NS) * .888;  // de la base (abajo) a la punta (arriba)
+  }
+  for (let j = 0; j < NS; j++) for (let i = 0; i < NU; i++) {
+    const a = j * (NU + 1) + i, b = a + 1, c = a + NU + 1, d = c + 1;
+    idx.push(a, b, c, b, d, c);              // cara delantera = cara interior del pétalo
+  }
+  g.setIndex(idx);
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  return g;
+}
+
+// Forma de un pétalo: se inclina desde la base (tilt), la punta se enrolla hacia atrás (curl)
+// y los bordes se ahuecan hacia el centro (cup). Todo se recalcula en cada fotograma.
+function shapePetal(p) {
+  const pos = p.geo.attributes.position.array;
+  const L = p.len, W = .31 * Math.max(L, .72);
+  const cp = Math.cos(p.phi), sp = Math.sin(p.phi);
+  let x = 0, y = 0;
+  const ds = 1 / NS;
+  for (let j = 0; j <= NS; j++) {
+    const s = j / NS;
+    if (j > 0) {
+      const tm = p.tilt + p.curl * Math.pow(s - ds / 2, p.cexp);
+      x += Math.sin(tm) * ds * L;
+      y += Math.cos(tm) * ds * L;
+    }
+    const th = p.tilt + p.curl * Math.pow(s, p.cexp);
+    const nr = Math.cos(th), ny = -Math.sin(th);            // normal hacia fuera en el plano radial
+    const wave = Math.sin(s * 9 + p.phi * 3) * .012 * p.open; // ondulación suave del pétalo
+    for (let i = 0; i <= NU; i++) {
+      const u = i / NU - .5;
+      // cup: los bordes se curvan hacia dentro; keel: pliegue en V a lo largo del nervio central
+      const keel = -.55 * Math.abs(u) * W * .32 * Math.sin(Math.PI * Math.min(s * 1.15, 1));
+      const c = -p.cup * 4 * u * u * W * .5 + keel + wave;
+      const R = p.r0 + x + nr * c, Y = y + ny * c, T = u * W;
+      const k = (j * (NU + 1) + i) * 3;
+      pos[k] = R * cp - T * sp;
+      pos[k + 1] = Y;
+      pos[k + 2] = R * sp + T * cp;
+    }
+  }
+  p.geo.attributes.position.needsUpdate = true;
+  p.geo.computeVertexNormals();
+}
+
+// estado del capullo y estado final de cada pétalo
+// cexp: dónde se concentra la curva (2,2 = repartida; 3,6 = solo la punta se enrolla)
+// capullo: la corona exterior forma la cáscara; la interior queda más erguida dentro
+const BUDS = [{tilt: .4, curl: -1.08, len: .58, cup: .6, cexp: 2.2},
+              {tilt: .2, curl: -.7,  len: .52, cup: .9, cexp: 2.2}];
+// dos coronas de 6 pétalos: la exterior sale casi horizontal; la interior, más erguida
+const PETALS = [
+  {az:   8, tilt: 1.18, curl: 3.5, len: 1.22, tex: 'A', ring: 0},
+  {az: 188, tilt: 1.24, curl: 3.7, len: 1.18, tex: 'B', ring: 0},
+  {az:  66, tilt: 1.14, curl: 3.4, len: 1.25, tex: 'C', ring: 0},
+  {az: 248, tilt: 1.26, curl: 3.6, len: 1.20, tex: 'A', ring: 0},
+  {az: 128, tilt: 1.20, curl: 3.5, len: 1.24, tex: 'B', ring: 0},
+  {az: 306, tilt: 1.22, curl: 3.8, len: 1.16, tex: 'C', ring: 0},
+  {az:  38, tilt: .92,  curl: 3.2, len: 1.02, tex: 'B', ring: 1},
+  {az: 218, tilt: .98,  curl: 3.3, len: .98,  tex: 'C', ring: 1},
+  {az:  98, tilt: .88,  curl: 3.1, len: 1.05, tex: 'A', ring: 1},
+  {az: 278, tilt: .96,  curl: 3.2, len: 1.00, tex: 'B', ring: 1},
+  {az: 158, tilt: .90,  curl: 3.4, len: 1.03, tex: 'C', ring: 1},
+  {az: 338, tilt: .94,  curl: 3.0, len: .99,  tex: 'A', ring: 1},
+];
+// orden de apertura: corona exterior alternando lados, intercalando la interior
+const OPEN_ORDER = [0, 1, 6, 2, 7, 3, 8, 4, 9, 5, 10, 11];
+
+const loader = new THREE.TextureLoader();
+const loadTex = name => new Promise((res, rej) => loader.load(`assets/petalo-${name}-recto.webp`, t => {
+  t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+  res(t);
+}, undefined, rej));
+
+const petals = [];
+const textures = {};
+for (const n of ['A', 'B', 'C']) textures[n] = await loadTex(n).catch(() => null);
+if (!textures.A) { window.__noFlower(); throw new Error('texturas'); }
+
+PETALS.forEach((d, i) => {
+  const geo = petalGeometry(i % 2 === 1);
+  const mesh = new THREE.Mesh(geo, petalMaterial(textures[d.tex] || textures.A));
+  flower.add(mesh);
+  const bud = BUDS[d.ring];
+  const p = {geo, mesh, phi: d.az * Math.PI / 180, r0: d.ring ? .03 : .046, open: 0, curlT: 0, ...bud, bud, final: d};
+  petals.push(p);
+});
+
+// estado de cada pétalo a partir de dos controles: apertura (open) y rizo (curlT)
+function updatePetal(p) {
+  const o = p.open, c = p.curlT, f = p.final, b = p.bud;
+  p.tilt = b.tilt + (f.tilt - b.tilt) * o;
+  p.len  = b.len + (f.len - b.len) * Math.min(1, o * 1.25);
+  p.cup  = b.cup + (.28 - b.cup) * o;
+  p.curl = b.curl + (f.curl - b.curl) * c;
+  p.cexp = b.cexp + (3.6 - b.cexp) * c;
+  shapePetal(p);
+}
+petals.forEach(updatePetal);
+
+// ---------- estambres y pistilo: tubos finos con antera ----------
+const stamenMat = solidMaterial(0xb8162c), antherMat = solidMaterial(0xc39a45), pistilMat = solidMaterial(0xd02a3e);
+const stamens = [];
+function makeStamen(az, size, pts, mat, anther) {
+  const g = new THREE.Group();
+  const curve = new THREE.CatmullRomCurve3(pts.map(([r, y]) => new THREE.Vector3(r, y, 0)));
+  g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 36, .0065, 5, false), mat));
+  if (anther) {
+    const a = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 6), antherMat);
+    const end = curve.getPoint(1), tan = curve.getTangent(1);
+    a.position.copy(end);
+    a.scale.set(.034, .011, .013);
+    a.rotation.z = Math.atan2(tan.y, tan.x) * .3;
+    g.add(a);
+  }
+  g.rotation.y = -az * Math.PI / 180;
+  g.userData.size = size;
+  g.scale.setScalar(.04);
+  flower.add(g);
+  stamens.push(g);
+}
+// los estambres salen en diagonal y sobresalen más allá de los pétalos, curvándose hacia arriba
+const STAMEN_PTS = [[.02, .02], [.24, .22], [.52, .5], [.82, .82], [1, 1.06], [1.04, 1.18]];
+[20, 56, 92, 128, 164, 200, 236, 272, 308, 344].forEach((az, i) =>
+  makeStamen(az, [1, .9, 1.08, .95, 1.04, .92, 1.06, .97, 1.02, .9][i], STAMEN_PTS, stamenMat, true));
+makeStamen(0, 1, [[0, .02], [.04, .45], [.1, .95], [.17, 1.4], [.2, 1.5]], pistilMat, false);
+
+// núcleo del capullo: rellena los huecos entre pétalos cerrados y desaparece al abrirse
+const core = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), solidMaterial(0x6e0e1d));
+core.scale.set(.1, .24, .1);
+core.position.y = .25;
+flower.add(core);
+
+// base de la flor y tallo
+const ovary = new THREE.Mesh(new THREE.SphereGeometry(.05, 14, 10), solidMaterial(0x34422b));
+ovary.scale.y = .9;
+flower.add(ovary);
+const stemCurve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(0, -.02, 0), new THREE.Vector3(.012, -1, 0), new THREE.Vector3(-.02, -2.6, .02), new THREE.Vector3(.03, -6, 0)]);
+flower.add(new THREE.Mesh(new THREE.TubeGeometry(stemCurve, 40, .024, 8, false), solidMaterial(0x2a3826)));
+
+// ---------- cámara ----------
+// La cámara orbita alrededor de un punto del eje de la flor: distancia, elevación y altura del punto.
+const cam = {dist: 1.75, el: -.05, ty: .3, yaw: 0, breathe: 1};
+function openDist() {
+  // que la flor abierta (unos 2,2 de ancho) quepa a lo ancho en vertical
+  const vfov = camera.fov * Math.PI / 180;
+  return THREE.MathUtils.clamp((2.25 / camera.aspect) / (2 * Math.tan(vfov / 2)), 2.6, 6.2);
+}
+function applyCamera() {
+  const ce = Math.cos(cam.el);
+  camera.position.set(0, cam.ty + Math.sin(cam.el) * cam.dist, ce * cam.dist);
+  camera.lookAt(0, cam.ty, 0);
+  flower.rotation.y = cam.yaw;
+  flower.scale.setScalar(cam.breathe);
+}
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+resize();
+addEventListener('resize', resize);
+
+let dirty = true, running = true;
+function render() {
+  if (!running) return;
+  petals.forEach(p => { if (p.dirty) { updatePetal(p); p.dirty = false; } });
+  applyCamera();
+  renderer.render(scene, camera);
+}
+G.ticker.add(render);
+const touch = p => () => { p.dirty = true; };
+
+window.__flowerReady = true;
+G.to(hint, {opacity: .6, duration: 1.2, delay: .4});
+
+// ---------- reposo: el capullo respira y se mece ----------
+let idle = [];
+if (!reduce) {
+  const breath = {duration: 2.6, ease: 'sine.inOut', yoyo: true, repeat: -1};
+  idle = [
+    G.to(cam, {breathe: 1.03, ...breath}),
+    G.to(cam, {yaw: .35, duration: 5, ease: 'sine.inOut', yoyo: true, repeat: -1}),
+    G.fromTo(glowEl, {opacity: .55, scale: .92}, {opacity: 1, scale: 1.04, ...breath}),
+    G.to(hint, {opacity: .95, ...breath, delay: 1.6}),
+  ];
+}
+
+// ---------- interacción ----------
+let opened = false;
+tap.addEventListener('pointerup', e => { if (e.isPrimary) open(); });
+tap.addEventListener('click', open);
+
+function open() {
+  if (opened) return;
+  opened = true;
+  tap.setAttribute('aria-disabled', 'true');
+  idle.forEach(t => t.kill());
+  reduce ? openReduced() : openFull();
+}
+
+function openFull() {
+  const tl = G.timeline();
+  const D = openDist();
+
+  tl.to(hint, {opacity: 0, y: 6, duration: .5, ease: 'power2.out'}, 0)
+    .to(glowEl, {opacity: 1, scale: 1.25, duration: 1.6, ease: 'sine.out'}, 0)
+    // el capullo late una vez
+    .to(cam, {breathe: 1.06, duration: .28, ease: 'power2.out'}, 0)
+    .to(cam, {breathe: 1, duration: .6, ease: 'power2.inOut'}, .28)
+    // la cámara se aleja y sube un poco mientras se abre
+    .to(cam, {dist: D, el: .3, ty: .22, duration: 3.6, ease: 'power2.inOut'}, .25)
+    .to(cam, {yaw: '+=0.5', duration: 4.4, ease: 'sine.inOut'}, .2);
+
+  // pétalo a pétalo: se inclina hacia fuera, se alarga y, con algo de retraso, se enrolla hacia atrás
+  let bloomEnd = 0;
+  OPEN_ORDER.map(i => petals[i]).forEach((p, k) => {
+    const t = .3 + k * .13 + (k % 3) * .025;
+    tl.to(p, {open: 1, duration: 2, ease: 'power2.inOut', onUpdate: touch(p)}, t)
+      .to(p, {curlT: 1, duration: 2.1, ease: 'power2.inOut', onUpdate: touch(p)}, t + .35);
+    bloomEnd = Math.max(bloomEnd, t + 2.45);
+  });
+  // los estambres crecen desde el centro
+  stamens.forEach((s, i) => {
+    const t = 1.3 + i * .08;
+    tl.to(s.scale, {x: s.userData.size, y: s.userData.size, z: s.userData.size, duration: 1.7, ease: 'expo.out'}, t);
+    bloomEnd = Math.max(bloomEnd, t + 1.4);
+  });
+  tl.to(core.scale, {x: .02, y: .02, z: .02, duration: 1.2, ease: 'power2.in'}, .3)
+    .set(core, {visible: false}, 1.5);
+  tl.add(inkBurst, .5).add(inkRain, .9);
+
+  // la cámara sube orbitando hasta mirar la flor desde arriba
+  tl.addLabel('orbit', bloomEnd + .3)
+    .to(cam, {el: 1.535, ty: .1, dist: D * .66, duration: 2.6, ease: 'power2.inOut'}, 'orbit')
+    .to(cam, {yaw: '+=1.1', duration: 4.2, ease: 'sine.inOut'}, 'orbit')
+    .to(glowEl, {opacity: .55, scale: 1.6, duration: 2, ease: 'sine.inOut'}, 'orbit')
+    .to([ambient, ...rains], {opacity: .35, duration: 2.6, ease: 'sine.inOut'}, 'orbit');
+
+  // y desciende por el eje hasta el corazón de la flor
+  tl.addLabel('dive', 'orbit+=2.9')
+    .to(cam, {dist: .06, ty: .04, duration: 2, ease: 'power3.in'}, 'dive')
+    .to(flash, {keyframes: {opacity: [0, .1, 0]}, duration: .5, ease: 'none'}, 'dive+=1.55')
+    .to([canvas, glowEl], {opacity: 0, duration: .6, ease: 'power1.in'}, 'dive+=1.45')
+    .to([ambient, ...rains], {opacity: 0, duration: 1, ease: 'power2.in'}, 'dive+=.6')
+    .fromTo(interior, {opacity: 0, scale: 1.45}, {opacity: 1, scale: 1.08, duration: 1.9, ease: 'power2.out'}, 'dive+=1.3')
+    .add(goInside, 'dive+=2.1');
+}
+
+function openReduced() {
+  // versión sin desplazamientos: fundido al estado abierto visto desde arriba y fundido a la carta
+  G.timeline()
+    .to([hint, canvas], {opacity: 0, duration: .5}, 0)
+    .add(() => {
+      petals.forEach(p => { p.open = 1; p.curlT = 1; p.dirty = true; });
+      stamens.forEach(s => s.scale.setScalar(s.userData.size));
+      core.visible = false;
+      Object.assign(cam, {dist: openDist() * .66, el: 1.535, ty: .1});
+    }, .5)
+    .to(canvas, {opacity: 1, duration: .9}, .55)
+    .to([canvas, glowEl, ambient, ...rains], {opacity: 0, duration: .9}, 3)
+    .fromTo(interior, {opacity: 0, scale: 1.08}, {opacity: 1, duration: 1}, 3.2)
+    .add(goInside, 4);
+}
+
+// ---------- partículas ----------
+const R = G.utils.random;
+function spawn(cls, w) {
+  const el = document.createElement('span');
+  el.className = cls;
+  if (w) el.style.setProperty('--w', w.toFixed(1) + 'px');
+  fx.appendChild(el);
+  return el;
+}
+function flowerOnScreen() {
+  const v = new THREE.Vector3(0, .3, 0);
+  flower.localToWorld(v).project(camera);
+  return {x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight};
+}
+function inkBurst() {
+  const c = flowerOnScreen();
+  for (let i = 0; i < 14; i++) {
+    const el = spawn('ink', R(4, 11));
+    const a = R(0, Math.PI * 2), d = R(90, Math.min(innerWidth, 420) * .62);
+    G.set(el, {x: c.x, y: c.y, scale: .3, opacity: 0});
+    G.timeline({onComplete: () => el.remove()})
+      .to(el, {opacity: R(.55, .9), duration: .15}, 0)
+      .to(el, {x: c.x + Math.cos(a) * d, y: c.y + Math.sin(a) * d + 30, scale: R(.6, 1.2), duration: R(1, 1.6), ease: 'expo.out'}, 0)
+      .to(el, {opacity: 0, duration: .9, ease: 'sine.in'}, .7);
+  }
+}
+function inkRain() {
+  const H = innerHeight, W = innerWidth;
+  for (let i = 0; i < 9; i++) {
+    const el = spawn('fall', R(4, 8));
+    const delay = i * .3 + R(0, .3), dur = R(4.5, 7);
+    G.set(el, {x: R(.08, .92) * W, y: -24, rotation: R(-15, 15), opacity: 0});
+    G.to(el, {y: H + 30, duration: dur, delay, ease: 'power1.in', onComplete: () => el.remove()});
+    G.to(el, {opacity: R(.45, .8), duration: 1, delay});
+    G.to(el, {x: '+=' + R(-18, 18), duration: R(1.6, 2.4), delay, ease: 'sine.inOut', yoyo: true, repeat: 3});
+  }
+}
+function embers() {
+  if (reduce) return;
+  for (let i = 0; i < 10; i++) {
+    const el = spawn('ember');
+    const loop = () => {
+      G.set(el, {x: R(.05, .95) * innerWidth, y: innerHeight + 10, opacity: 0, scale: R(.6, 1.3)});
+      const dur = R(9, 15);
+      G.timeline({onComplete: loop})
+        .to(el, {y: R(-.1, .3) * innerHeight, duration: dur, ease: 'none'}, 0)
+        .to(el, {x: '+=' + R(-40, 40), duration: dur / 2, ease: 'sine.inOut', yoyo: true, repeat: 1}, 0)
+        .to(el, {opacity: R(.35, .75), duration: 2, ease: 'sine.out'}, 0)
+        .to(el, {opacity: 0, duration: 2.5, ease: 'sine.in'}, dur - 2.5);
+    };
+    G.delayedCall(i * 1.1, loop);
+  }
+}
+
+// ---------- dentro de la flor ----------
+function goInside() {
+  // el 3D ya no se ve: se detiene y se libera la memoria de la GPU
+  running = false;
+  G.ticker.remove(render);
+  renderer.dispose();
+  window.scrollTo(0, 0);
+  root.classList.add('inside');
+  root.classList.remove('locked');
+  G.set(reveal, {opacity: 0, y: reduce ? 0 : 14});
+  embers();
+  if (!reduce) {
+    const setY = G.quickSetter(interior, 'y', 'px');
+    let ticking = false;
+    addEventListener('scroll', () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => { setY(-scrollY * .06); ticking = false; });
+    }, {passive: true});
+  }
+  startReading();
+}
+
+function startReading() {
+  const queue = [];
+  let busy = false;
+  const pump = () => {
+    if (busy || !queue.length) return;
+    busy = true;
+    queue.sort((a, b) => reveal.indexOf(a) - reveal.indexOf(b));
+    const p = queue.shift();
+    const sign = p.classList.contains('signoff');
+    G.to(p, {opacity: 1, y: 0, duration: reduce ? .6 : (sign ? 2.4 : 1.7), ease: 'power2.out'});
+    G.delayedCall(reduce ? .2 : .9, () => { busy = false; pump(); });
+  };
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      io.unobserve(e.target);
+      queue.push(e.target);
+    });
+    pump();
+  }, {rootMargin: '0px 0px -6% 0px'});
+  reveal.forEach(p => io.observe(p));
+}
+</script>
+</body>
+</html>
