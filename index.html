@@ -98,10 +98,6 @@
   html.no-3d .letter{display:block}
   html.no-3d .letter p{opacity:1 !important;transform:none !important}
 
-  @media (prefers-reduced-motion: reduce){
-    .ambient,.rain{animation:none}
-    .rain{transform:rotate(11deg)}
-  }
 </style>
 </head>
 <body>
@@ -144,7 +140,9 @@
 import * as THREE from 'three';
 
 const root = document.documentElement;
-const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Siempre la animación completa, aunque el sistema pida reducir el movimiento.
+// Para volver a respetarlo: const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduce = false;
 const G = window.gsap;
 const $ = s => document.querySelector(s);
 const tap = $('.tap'), hint = $('.hint'), glowEl = $('.glow'), canvas = $('.gl');
