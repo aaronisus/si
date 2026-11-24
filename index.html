@@ -188,7 +188,7 @@ const Sound = (() => {
   const FELT = [52, 55, 57, 59, 60, 62, 64, 65, 67, 69, 71];  // piano de fieltro: acordes largos
   const RHODES = [55, 57, 59, 60, 62, 64, 65, 67, 69];         // piano eléctrico: acordes del groove
   const FILES = [...FELT.map(m => 'p' + m), ...RHODES.map(m => 'r' + m),
-                 'kick_body', 'kick_click', 'hat', 'ohat', 'clap', 'riser', 'arrive', 'rain'];
+                 'kick_body', 'kick_click', 'hat', 'ohat', 'clap', 'riser', 'arrive', 'rain', 'gota'];
   const BPM = 128, beat = 60 / BPM, six = beat / 4, bar = beat * 4; // 5 compases = toque → llegada
   const MASTER = .6;
   const KICK_RATE = Math.pow(2, 3 / 12); // el cuerpo del bombo suena en Fa#1: afinado a La1, la tónica      // nivel general: unos -16 LUFS mientras suena el groove
@@ -358,6 +358,8 @@ const Sound = (() => {
       if (!ctx) return;
       ready.then(() => { chain = makeChain(0); looping = true; barIdx = 0; nextBarT = ctx.currentTime + .03; tick(); });
     },
+    // la gota de sangre al tocar la flor (grabación real, algo más grave y con cuerpo; pico a 0,01 s)
+    drop() { if (!ctx) return; play('gota', ctx.currentTime, {gain: 1, out: hits}); },
     // los estambres: dos notas agudas de piano, muy suaves
     stamens() { if (!ctx) return; const t = ctx.currentTime; note('p', 76, t, {gain: .1, out: hits}); note('p', 83, t + .16, {gain: .07, out: hits}); },
     // la zambullida: un soplo de aire que crece hasta la llegada (su pico cae a 1,96 s)
@@ -802,6 +804,7 @@ function openFull() {
     .fromTo(drop.scale, {y: .05}, {y: .085, duration: IMPACT, ease: 'power2.in'}, 0)
     .set(drop, {visible: false}, IMPACT)
     .add(() => splashOut(), IMPACT)
+    .add(Sound.drop, IMPACT - .01)
     .add(Sound.groove, IMPACT)
     .add(inkBurst, IMPACT)
     .to(cam, {breathe: 1.07, duration: .16, ease: 'power2.out'}, IMPACT)
