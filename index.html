@@ -725,7 +725,7 @@ drop.scale.set(.026, .03, .026);
 drop.position.set(0, 2.2, 0);
 drop.visible = false;
 flower.add(drop);
-const splash = Array.from({length: 8}, () => {
+const splash = Array.from({length: 17}, () => {
   const m = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), dropMat);
   m.visible = false; m.scale.setScalar(.012); flower.add(m); return m;
 });
@@ -935,13 +935,16 @@ function openFull() {
 function splashOut() {
   const o = DROP.value;
   splash.forEach((m, i) => {
-    const a = (i / splash.length) * Math.PI * 2 + R(-.25, .25), sp = R(.07, .14), up = R(.03, .07), d = R(.38, .5);
+    // 14 gotitas en corona y 3 gotas gordas que suben más y caen más lentas por fuera
+    const big = i >= splash.length - 3;
+    const a = (i / splash.length) * Math.PI * 2 + R(-.3, .3);
+    const sp = big ? R(.18, .26) : R(.08, .2), up = big ? R(.16, .24) : R(.05, .14), d = big ? R(.7, .85) : R(.45, .62);
     m.visible = true;
-    m.position.set(o.x, o.y + .008, o.z);
-    m.scale.setScalar(R(.0035, .0065));
+    m.position.set(o.x, o.y + .01, o.z);
+    m.scale.setScalar(big ? R(.009, .012) : R(.004, .008));
     G.to(m.position, {x: o.x + Math.cos(a) * sp, z: o.z + Math.sin(a) * sp, duration: d, ease: 'power1.out'});
-    G.to(m.position, {keyframes: {y: [o.y + up, o.y - .12]}, duration: d, ease: 'none'});
-    G.to(m.scale, {x: .0008, y: .0008, z: .0008, duration: d, ease: 'power2.in', onComplete: () => { m.visible = false; }});
+    G.to(m.position, {keyframes: {y: [o.y + up, o.y - (big ? .45 : .2)]}, duration: d, ease: 'none'});
+    G.to(m.scale, {x: .001, y: .001, z: .001, duration: d, ease: 'power3.in', onComplete: () => { m.visible = false; }});
   });
 }
 
