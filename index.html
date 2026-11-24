@@ -822,7 +822,9 @@ function openFull() {
   const D = openDist();
   // La gota revienta en el primer tiempo de la música; la llegada al corazón de la flor cae
   // exactamente 6 compases después (132 BPM: un compás = 1,818 s).
-  const IMPACT = .55, BAR = 60 / 132 * 4, ARRIVAL = IMPACT + 6 * BAR;
+  const IMPACT = .55, BAR = 60 / 132 * 4;
+  // la música entra dos tiempos después de la gota: un silencio (solo gota y lluvia) que sigue cuadrando con el ritmo
+  const MUSIC = IMPACT + BAR / 2, ARRIVAL = MUSIC + 6 * BAR;
 
   tl.to(hint, {opacity: 0, y: 6, duration: .5, ease: 'power2.out'}, 0);
 
@@ -833,7 +835,7 @@ function openFull() {
     .set(drop, {visible: false}, IMPACT)
     .add(() => splashOut(), IMPACT)
     .add(Sound.drop, IMPACT - .01)
-    .add(Sound.groove, IMPACT)
+    .add(Sound.groove, MUSIC)
     .add(inkBurst, IMPACT)
     .to(cam, {breathe: 1.07, duration: .16, ease: 'power2.out'}, IMPACT)
     .to(cam, {breathe: 1, duration: .7, ease: 'power2.inOut'}, IMPACT + .16)
