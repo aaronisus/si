@@ -459,7 +459,7 @@ const VERT = `varying vec2 vUv; varying vec3 vN;
 // La flor empieza pálida (el mismo dibujo en blanco y gris) y una mancha roja, como tinta en agua,
 // se extiende desde donde cae la gota (uDrop) según avanza uStain; el frente de la mancha es más oscuro.
 // STAIN y DROP se comparten entre todos los pétalos de la flor principal.
-const STAIN = {value: 0}, DROP = {value: new THREE.Vector3(0, .56, 0)};
+const STAIN = {value: 0}, DROP = {value: new THREE.Vector3(0, .5, 0)};
 const FULL_RED = {value: 99};
 const petalMaterial = (tex, stain = STAIN) => new THREE.ShaderMaterial({
   uniforms: {map: {value: tex}, uLight: {value: LIGHT}, uBump: {value: .5}, uStain: stain, uDrop: DROP},
@@ -695,14 +695,38 @@ stemMat.uniforms.uColor.value.set(0xe4e4e8);
 flower.add(new THREE.Mesh(new THREE.TubeGeometry(stemCurve, 40, .024, 8, false), stemMat));
 
 // ---------- la gota y su salpicadura ----------
-const dropMat = solidMaterial(0xd0182e);
-const drop = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), dropMat);
-drop.scale.set(.03, .05, .03);
+// líquido: rojo sangre profundo, un reflejo nítido de la luz y un borde iluminado (fresnel)
+const dropMat = new THREE.ShaderMaterial({
+  uniforms: {uLight: {value: LIGHT}},
+  vertexShader: `varying vec3 vN; varying vec3 vView;
+    void main(){ vN = normalize(normalMatrix * normal);
+      vec4 mv = modelViewMatrix * vec4(position, 1.); vView = -mv.xyz;
+      gl_Position = projectionMatrix * mv; }`,
+  fragmentShader: `uniform vec3 uLight; varying vec3 vN; varying vec3 vView;
+    void main(){
+      vec3 n = normalize(vN), V = normalize(vView);
+      float diff = max(dot(n, uLight), 0.);
+      float spec = pow(max(dot(reflect(-uLight, n), V), 0.), 90.);
+      float spec2 = pow(max(dot(reflect(-normalize(vec3(-.6, .3, .7)), n), V), 0.), 40.);
+      float fres = pow(1. - max(dot(n, V), 0.), 2.5);
+      vec3 c = vec3(.38, .01, .05) * (.35 + .75 * diff);
+      c += vec3(.95, .2, .25) * fres * .55;          // la luz que atraviesa el borde del líquido
+      c += vec3(1., .9, .9) * (spec * 1.4 + spec2 * .35);
+      gl_FragColor = vec4(c, 1.);
+    }`,
+});
+// forma de lágrima: base redonda y punta arriba (geometría de revolución)
+const tearPts = [];
+for (let i = 0; i <= 14; i++) { const a = Math.PI * i / 14; tearPts.push(new THREE.Vector2(Math.sin(a) * (i > 7 ? 1 : 1), -Math.cos(a))); }
+const tear = tearPts.filter(p => p.y <= 0);
+for (let i = 1; i <= 12; i++) { const y = i / 12 * 1.7; tear.push(new THREE.Vector2(Math.pow(1 - y / 1.7, 1.4), y)); }
+const drop = new THREE.Mesh(new THREE.LatheGeometry(tear, 28), dropMat);
+drop.scale.set(.026, .03, .026);
 drop.position.set(0, 2.2, 0);
 drop.visible = false;
 flower.add(drop);
-const splash = Array.from({length: 12}, () => {
-  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), dropMat);
+const splash = Array.from({length: 8}, () => {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), dropMat);
   m.visible = false; m.scale.setScalar(.012); flower.add(m); return m;
 });
 
@@ -828,21 +852,27 @@ function openFull() {
 
   tl.to(hint, {opacity: 0, y: 6, duration: .5, ease: 'power2.out'}, 0);
 
-  // 1 · la gota cae desde arriba, estirándose, y revienta en la punta del capullo
+  // 1 · la gota cae (se estira con la velocidad), se aplasta contra la flor, se hunde y se absorbe
+  const SURF = DROP.value.y;
   tl.set(drop, {visible: true}, 0)
-    .fromTo(drop.position, {y: 1.15}, {y: DROP.value.y + .02, duration: IMPACT, ease: 'power2.in'}, 0)
-    .fromTo(drop.scale, {y: .05}, {y: .085, duration: IMPACT, ease: 'power2.in'}, 0)
-    .set(drop, {visible: false}, IMPACT)
+    .fromTo(drop.position, {y: 1.15}, {y: SURF + .03, duration: IMPACT, ease: 'power2.in'}, 0)
+    .fromTo(drop.scale, {x: .026, y: .03, z: .026}, {x: .021, y: .046, z: .021, duration: IMPACT, ease: 'power2.in'}, 0)
+    // el impacto: se aplasta y se ensancha en un instante
+    .to(drop.scale, {x: .034, y: .016, z: .034, duration: .07, ease: 'power2.out'}, IMPACT)
+    .to(drop.position, {y: SURF + .006, duration: .07, ease: 'power2.out'}, IMPACT)
+    // y se hunde en la flor mientras la flor la bebe
+    .to(drop.scale, {x: .014, y: .004, z: .014, duration: .5, ease: 'power2.in'}, IMPACT + .07)
+    .to(drop.position, {y: SURF - .09, duration: .5, ease: 'power2.in'}, IMPACT + .07)
+    .set(drop, {visible: false}, IMPACT + .62)
     .add(() => splashOut(), IMPACT)
     .add(Sound.drop, IMPACT - .01)
     .add(Sound.groove, MUSIC)
-    .add(inkBurst, IMPACT)
-    .to(cam, {breathe: 1.07, duration: .16, ease: 'power2.out'}, IMPACT)
-    .to(cam, {breathe: 1, duration: .7, ease: 'power2.inOut'}, IMPACT + .16)
+    .to(cam, {breathe: 1.03, duration: .14, ease: 'power2.out'}, IMPACT)
+    .to(cam, {breathe: 1, duration: .6, ease: 'power2.inOut'}, IMPACT + .14)
     .to(glowEl, {opacity: 1, scale: 1.3, duration: 1.4, ease: 'sine.out'}, IMPACT);
 
   // 2 · el rojo se extiende por la flor como tinta en agua; el núcleo y el tallo se tiñen también
-  tl.to(STAIN, {value: 2.2, duration: 2.4, ease: 'power1.inOut'}, IMPACT)
+  tl.to(STAIN, {value: 2.2, duration: 2.4, ease: 'power1.inOut'}, IMPACT + .05)
     .to(coreMat.uniforms.uColor.value, {r: CORE_RED.r, g: CORE_RED.g, b: CORE_RED.b, duration: .9}, IMPACT + .1)
     .to(ovaryMat.uniforms.uColor.value, {r: OVARY_RED.r, g: OVARY_RED.g, b: OVARY_RED.b, duration: 1}, IMPACT + 1.2)
     .to(stemMat.uniforms.uColor.value, {r: STEM_RED.r, g: STEM_RED.g, b: STEM_RED.b, duration: 1.4}, IMPACT + 1.6);
@@ -905,13 +935,13 @@ function openFull() {
 function splashOut() {
   const o = DROP.value;
   splash.forEach((m, i) => {
-    const a = (i / splash.length) * Math.PI * 2 + R(-.2, .2), sp = R(.12, .3), up = R(.1, .28);
+    const a = (i / splash.length) * Math.PI * 2 + R(-.25, .25), sp = R(.07, .14), up = R(.03, .07), d = R(.38, .5);
     m.visible = true;
-    m.position.copy(o);
-    m.scale.setScalar(R(.008, .016));
-    G.to(m.position, {x: o.x + Math.cos(a) * sp, z: o.z + Math.sin(a) * sp, duration: .7, ease: 'power1.out'});
-    G.to(m.position, {keyframes: {y: [o.y + up, o.y - .25]}, duration: .7, ease: 'none'});
-    G.to(m.scale, {x: .001, y: .001, z: .001, duration: .7, ease: 'power2.in', onComplete: () => { m.visible = false; }});
+    m.position.set(o.x, o.y + .008, o.z);
+    m.scale.setScalar(R(.0035, .0065));
+    G.to(m.position, {x: o.x + Math.cos(a) * sp, z: o.z + Math.sin(a) * sp, duration: d, ease: 'power1.out'});
+    G.to(m.position, {keyframes: {y: [o.y + up, o.y - .12]}, duration: d, ease: 'none'});
+    G.to(m.scale, {x: .0008, y: .0008, z: .0008, duration: d, ease: 'power2.in', onComplete: () => { m.visible = false; }});
   });
 }
 
