@@ -189,9 +189,9 @@ const Sound = (() => {
   const RHODES = [55, 57, 59, 60, 62, 64, 65, 67, 69];         // piano eléctrico: acordes del groove
   const FILES = [...FELT.map(m => 'p' + m), ...RHODES.map(m => 'r' + m),
                  'kick_body', 'kick_click', 'hat', 'ohat', 'clap', 'riser', 'arrive', 'rain', 'gota'];
-  const BPM = 128, beat = 60 / BPM, six = beat / 4, bar = beat * 4; // 5 compases = toque → llegada
-  const MASTER = .6;
-  const KICK_RATE = Math.pow(2, 3 / 12); // el cuerpo del bombo suena en Fa#1: afinado a La1, la tónica      // nivel general: unos -16 LUFS mientras suena el groove
+  const BPM = 132, beat = 60 / BPM, six = beat / 4, bar = beat * 4; // 6 compases = gota → llegada
+  const MASTER = .55;
+  const KICK_RATE = Math.pow(2, 4 / 12); // el cuerpo del bombo suena en Fa#1: afinado a La1, la tónica      // nivel general: unos -16 LUFS mientras suena el groove
   const RAIN_LEVEL = .3;
 
   const reverbIR = (secs, decay) => {
@@ -233,14 +233,21 @@ const Sound = (() => {
   // out: salida de la sección; pump: «bombeo» de piano y bajo con cada bombo; pianoLP: filtro del piano.
   function makeChain(lowpass) {
     const out = ctx.createGain(), pump = ctx.createGain(), pianoLP = ctx.createBiquadFilter();
+    // ecualización de la mezcla: menos barro (350 Hz) y más aire (5 kHz), como en la referencia
+    const mud = ctx.createBiquadFilter(); mud.type = 'peaking'; mud.frequency.value = 350; mud.Q.value = .9; mud.gain.value = -4;
+    const air = ctx.createBiquadFilter(); air.type = 'highshelf'; air.frequency.value = 5000; air.gain.value = 5;
+    out.connect(mud).connect(air);
     if (lowpass) {
       const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = lowpass; lp.Q.value = .5;
-      out.connect(lp).connect(master);
-    } else out.connect(master);
+      air.connect(lp).connect(master);
+    } else air.connect(master);
     pianoLP.type = 'lowpass'; pianoLP.frequency.value = 18000; pianoLP.Q.value = .8;
-    const shelf = ctx.createBiquadFilter(); shelf.type = 'highshelf'; shelf.frequency.value = 2500; shelf.gain.value = 6;
-    pump.connect(pianoLP).connect(shelf); shelf.connect(out); shelf.connect(verbIn);
-    return {out, pump, pianoLP};
+    const shelf = ctx.createBiquadFilter(); shelf.type = 'highshelf'; shelf.frequency.value = 2500; shelf.gain.value = 8;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 220; hp.Q.value = .6;
+    pump.connect(pianoLP).connect(hp).connect(shelf); shelf.connect(out); shelf.connect(verbIn);
+    // el sub-bajo va aparte: también «bombea», pero sin el paso alto
+    const subPump = ctx.createGain(); subPump.connect(out);
+    return {out, pump, pianoLP, subPump};
   }
 
   // reproduce una muestra; con len se corta (staccato) con una caída corta
@@ -265,6 +272,23 @@ const Sound = (() => {
     let h = set.reduce((a, b) => Math.abs(b - m) < Math.abs(a - m) ? b : a);
     if (m < 50) h = 57;
     play(kind + h, t, {...o, rate: Math.pow(2, (m - h) / 12)});
+  }
+  function stab(m, t, out, gain = .05, len = .16) {
+    const f = 440 * Math.pow(2, (m - 69) / 12);
+    const g = ctx.createGain(), lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.Q.value = 2.5;
+    lp.frequency.setValueAtTime(600, t);
+    lp.frequency.linearRampToValueAtTime(4200, t + .012);
+    lp.frequency.exponentialRampToValueAtTime(900, t + len);
+    [-9, 0, 9].forEach(d => {
+      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = d;
+      o.connect(lp); o.start(t); o.stop(t + len + .12);
+    });
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(gain, t + .006);
+    g.gain.setValueAtTime(gain, t + len);
+    g.gain.linearRampToValueAtTime(0, t + len + .08);
+    lp.connect(g).connect(out);
   }
   // bajo: seno + triángulo filtrado, corto
   function bass(m, t, out, len = .2, gain = .16) {
@@ -297,35 +321,39 @@ const Sound = (() => {
     }
   }
 
-  // Pieza original de deep house a 128 BPM: La menor 7 – Fa maj7 – Do – Sol, en bucle.
+  // Pieza original de tech house a 132 BPM: Si bemol menor – Sol bemol – Re bemol – La bemol, en bucle.
   // Compás 1: piano eléctrico (que se «abre» con un filtro, como la flor) y bombo.
   // Compás 2: palmada y charles. Desde el 3: bajo. Se corta justo antes de llegar al corazón de la flor.
-  const CHORDS = [[57, 60, 64, 69], [57, 60, 65, 69], [55, 60, 64, 67], [55, 59, 62, 67]];
-  const ROOTS = [45, 41, 48, 43];
+  const CHORDS = [[58, 61, 65, 70], [58, 61, 66, 70], [56, 61, 65, 68], [56, 60, 63, 68]];
+  const ROOTS = [46, 42, 49, 44];
   const STABS = [0, 3, 6, 10, 12, 14];  // semicorcheas del piano: síncopa típica de house
   const BASSES = [2, 6, 7, 10, 14];     // el bajo responde entre los golpes del bombo
   let looping = false, barIdx = 0, nextBarT = 0;
   function scheduleBar(b, t0) {
-    const c = b % 4, {pump, pianoLP} = chain;
+    const c = b % 4, {pump, pianoLP, subPump} = chain;
     for (let q = 0; q < 4; q++) {
       const tq = t0 + q * beat;
       play('kick_body', tq, {gain: b === 0 ? .45 : .6, len: .34, rel: .1, rate: KICK_RATE});
       play('kick_click', tq, {gain: .8});
       pump.gain.setValueAtTime(.32, tq);
       pump.gain.linearRampToValueAtTime(1, tq + beat * .62);
+      subPump.gain.setValueAtTime(.15, tq);
+      subPump.gain.linearRampToValueAtTime(1, tq + beat * .5);
       if (b >= 1) {
         if (q === 1 || q === 3) play('clap', tq, {gain: .9});
-        play('ohat', tq + beat / 2, {gain: .38, len: .14, rel: .1});
-        [1, 3].forEach(k => play('hat', tq + k * six, {gain: k === 3 ? .17 : .1, len: .04, rel: .03}));
+        play('ohat', tq + beat / 2, {gain: .62, len: .15, rel: .1});
+        [1, 3].forEach(k => play('hat', tq + k * six, {gain: k === 3 ? .32 : .2, len: .04, rel: .03}));
       }
     }
     if (b === 0) {   // el piano se abre a la vez que la flor
       pianoLP.frequency.setValueAtTime(450, t0);
       pianoLP.frequency.exponentialRampToValueAtTime(16000, t0 + bar * 1.6);
     }
-    STABS.forEach((s, i) => CHORDS[c].forEach(m =>
-      note('r', m, t0 + s * six, {gain: i === 0 ? .6 : .5, len: .2, rel: .16, out: pump})));
-    if (b >= 2) BASSES.forEach((s, i) => bass(ROOTS[c] + (i % 2 ? 12 : 0), t0 + s * six, pump));
+    STABS.forEach((s, i) => CHORDS[c].forEach(m => {
+      note('r', m + 12, t0 + s * six, {gain: i === 0 ? .55 : .45, len: .18, rel: .14, out: pump});
+      if (b >= 1) stab(m + 12, t0 + s * six, pump, i === 0 ? .09 : .075);
+    }));
+    if (b >= 2) BASSES.forEach((s, i) => bass(ROOTS[c] - 12 + (i % 2 ? 12 : 0), t0 + s * six, subPump, .2, .2));
   }
   // programa los compases con unos segundos de antelación (no todo de golpe: más ligero en el móvil)
   function tick() {
@@ -361,7 +389,7 @@ const Sound = (() => {
     // la gota de sangre al tocar la flor (grabación real, algo más grave y con cuerpo; pico a 0,01 s)
     drop() { if (!ctx) return; play('gota', ctx.currentTime, {gain: 1, out: hits}); },
     // los estambres: dos notas agudas de piano, muy suaves
-    stamens() { if (!ctx) return; const t = ctx.currentTime; note('p', 76, t, {gain: .1, out: hits}); note('p', 83, t + .16, {gain: .07, out: hits}); },
+    stamens() { if (!ctx) return; const t = ctx.currentTime; note('p', 77, t, {gain: .1, out: hits}); note('p', 84, t + .16, {gain: .07, out: hits}); },
     // la zambullida: un soplo de aire que crece hasta la llegada (su pico cae a 1,96 s)
     dive() { if (!ctx) return; play('riser', ctx.currentTime, {gain: .6, out: hits}); },
     // la música se corta en seco un instante antes de llegar
@@ -376,7 +404,7 @@ const Sound = (() => {
       if (!ctx) return;
       const t = ctx.currentTime, hit = t + .13;
       play('arrive', t, {gain: .9, out: hits});
-      [45, 52, 59, 60, 64, 71].forEach((m, i) => note('p', m, hit + i * .025, {gain: .2, len: 3.2, rel: 2.4, out: hits}));
+      [46, 53, 60, 61, 65, 72].forEach((m, i) => note('p', m, hit + i * .025, {gain: .2, len: 3.2, rel: 2.4, out: hits}));
       rainLP.frequency.setTargetAtTime(900, hit, .25);
       rainGain.gain.setTargetAtTime(RAIN_LEVEL * 1.1, hit, .4);
       chain = makeChain(330);
@@ -389,7 +417,7 @@ const Sound = (() => {
     signoff() {
       if (!ctx) return;
       const t = ctx.currentTime;
-      [45, 52, 60, 64, 71].forEach((m, i) => note('p', m, t + i * .07, {gain: .22, len: 4, rel: 3, out: hits}));
+      [46, 53, 61, 65, 72].forEach((m, i) => note('p', m, t + i * .07, {gain: .22, len: 4, rel: 3, out: hits}));
       if (chain) chain.out.gain.setTargetAtTime(0, t + .5, 2);
       setTimeout(() => { looping = false; }, 9000);
     },
@@ -793,8 +821,8 @@ function openFull() {
   const tl = G.timeline();
   const D = openDist();
   // La gota revienta en el primer tiempo de la música; la llegada al corazón de la flor cae
-  // exactamente 6 compases después (128 BPM: un compás = 1,875 s).
-  const IMPACT = .55, BAR = 60 / 128 * 4, ARRIVAL = IMPACT + 6 * BAR;
+  // exactamente 6 compases después (132 BPM: un compás = 1,818 s).
+  const IMPACT = .55, BAR = 60 / 132 * 4, ARRIVAL = IMPACT + 6 * BAR;
 
   tl.to(hint, {opacity: 0, y: 6, duration: .5, ease: 'power2.out'}, 0);
 
@@ -841,15 +869,15 @@ function openFull() {
   const FIELD_T = T0 + 2.65;
   const order = [0, 4, 1, 5, 2, 3, 6];
   order.forEach((i, k) => {
-    const g = field[i], t = FIELD_T + k * .26, sc = g.userData.size;
+    const g = field[i], t = FIELD_T + k * .22, sc = g.userData.size;
     tl.set(g, {visible: true}, t)
       .to(g.scale, {x: sc, y: sc, z: sc, duration: 1.3, ease: 'back.out(1.4)'}, t)
       .to(g.position, {y: g.userData.y, duration: 1.3, ease: 'power3.out'}, t)
       .add(() => G.to(g.rotation, {z: R(.03, .06) * (k % 2 ? 1 : -1), duration: R(2.4, 3.2),
         ease: 'sine.inOut', yoyo: true, repeat: -1}), t + 1.2);
   });
-  tl.to(cam, {el: -.16, ty: .55, dist: D * 1.12, duration: 2.6, ease: 'power2.inOut'}, FIELD_T + .3)
-    .to(cam, {yaw: '+=0.6', duration: 2.8, ease: 'sine.inOut'}, FIELD_T + .3);
+  tl.to(cam, {el: -.16, ty: .55, dist: D * 1.12, duration: 2.1, ease: 'power2.inOut'}, FIELD_T + .25)
+    .to(cam, {yaw: '+=0.6', duration: 2.2, ease: 'sine.inOut'}, FIELD_T + .25);
 
   // 5 · la cámara sube orbitando hasta mirar desde arriba: la flor en el centro del anillo rojo
   const ORBIT = ARRIVAL - 1.95 - 3.2;
