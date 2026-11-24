@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#060405">
 <meta name="color-scheme" content="dark">
 <meta name="robots" content="noindex">
-<title>para ti</title>
+<title>para ti 🌸</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🌸%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -77,7 +77,8 @@
   .tap:focus-visible{outline:none}
   .tap:focus-visible .hint{color:var(--ash);text-decoration:underline;text-underline-offset:6px}
   .hint{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 7dvh);
-    text-align:center;font-style:italic;font-size:.95rem;letter-spacing:.1em;color:var(--ash-dim);opacity:0}
+    text-align:center;font-style:italic;font-size:.95rem;letter-spacing:.1em;color:var(--ash);opacity:0;
+    text-shadow:0 0 6px #060405, 0 0 14px #060405, 0 0 22px #060405}
 
   /* ---------- la carta, dentro de la flor ---------- */
   .letter{display:none;position:relative;z-index:5;
@@ -85,6 +86,7 @@
   .letter-inner{max-width:30rem;margin:0 auto}
   .letter p{margin:0 0 1.4em;font-size:1.125rem;line-height:1.8;
     text-wrap:pretty;overflow-wrap:break-word;text-shadow:0 1px 14px rgba(0,0,0,.85), 0 0 2px rgba(0,0,0,.6)}
+  .letter .date{margin:0 0 1.6em;font-style:italic;font-size:.95rem;letter-spacing:.14em;color:var(--ember)}
   .letter .signoff{margin:3.2rem 0 0;text-align:right;
     font-family:"Instrument Serif", Georgia, serif;font-style:italic;font-weight:400;
     font-size:2.9rem;line-height:1;color:var(--ember);text-shadow:0 0 24px rgba(0,0,0,.9)}
@@ -152,15 +154,17 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script>
-  // Si en 10 s no ha arrancado el 3D se muestra el texto directamente.
+  // Si en 10 s no ha arrancado el 3D (sin WebGL, sin conexión al CDN...), se muestra la carta directamente.
   window.__noFlower = () => { document.documentElement.classList.add('no-3d'); document.documentElement.classList.remove('locked'); };
   setTimeout(() => { if (!window.__flowerReady) window.__noFlower(); }, 10000);
 </script>
 <script type="importmap">
-  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js" } }
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+                 "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
 </script>
 <script type="module">
 import * as THREE from 'three';
+import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 
 const root = document.documentElement;
 // Siempre la animación completa, aunque el sistema pida reducir el movimiento.
@@ -174,16 +178,22 @@ const interior = $('.interior'), fx = $('.fx'), flash = $('.flash');
 const reveal = [...document.querySelectorAll('.letter p')];
 const muteBtn = $('.mute');
 
-// ---------- sonido: todo generado con Web Audio (sin archivos) ----------
-// Solo empieza con el toque de ella (los navegadores no permiten audio antes de una interacción).
+// ---------- sonido: grabaciones reales (piano, batería, lluvia, efectos) hechas con earshot ----------
+// El contexto se crea al cargar (en pausa) para decodificar las muestras a tiempo; el sonido
+// solo empieza con el toque de ella (los navegadores no permiten audio antes de una interacción).
 const Sound = (() => {
-  let ctx, master, bus, seqBus, rainGain, muted = false;
-  const noiseBuffer = (secs) => {
-    const b = ctx.createBuffer(1, ctx.sampleRate * secs, ctx.sampleRate);
-    const d = b.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    return b;
-  };
+  let ctx, master, verbIn, hits, rainGain, rainLP, ready, chain;
+  let muted = false, rainUntil = 0;
+  const buffers = {};
+  const FELT = [52, 55, 57, 59, 60, 62, 64, 65, 67, 69, 71];  // piano de fieltro: acordes largos
+  const RHODES = [55, 57, 59, 60, 62, 64, 65, 67, 69];         // piano eléctrico: acordes del groove
+  const FILES = [...FELT.map(m => 'p' + m), ...RHODES.map(m => 'r' + m),
+                 'kick_body', 'kick_click', 'hat', 'ohat', 'clap', 'riser', 'arrive', 'rain'];
+  const BPM = 128, beat = 60 / BPM, six = beat / 4, bar = beat * 4; // 5 compases = toque → llegada
+  const MASTER = .6;
+  const KICK_RATE = Math.pow(2, 3 / 12); // el cuerpo del bombo suena en Fa#1: afinado a La1, la tónica      // nivel general: unos -16 LUFS mientras suena el groove
+  const RAIN_LEVEL = .3;
+
   const reverbIR = (secs, decay) => {
     const len = ctx.sampleRate * secs, b = ctx.createBuffer(2, len, ctx.sampleRate);
     for (let c = 0; c < 2; c++) {
@@ -193,192 +203,205 @@ const Sound = (() => {
     return b;
   };
 
-  function start() {
-    if (ctx) return;
+  function init() {
     try {
-      // en iPhone recientes, que suene aunque el interruptor de silencio esté activado
-      if (navigator.audioSession) navigator.audioSession.type = 'playback';
+      if (navigator.audioSession) navigator.audioSession.type = 'playback'; // iPhone: suena con el interruptor de silencio
       ctx = new (window.AudioContext || window.webkitAudioContext)();
-    } catch (e) { return; }
+    } catch (e) { ready = Promise.resolve(); return; }
+    // salida: limitador suave para que nada sature en el altavoz del móvil
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -6; limiter.knee.value = 6; limiter.ratio.value = 12;
+    limiter.attack.value = .003; limiter.release.value = .2;
+    limiter.connect(ctx.destination);
+    master = ctx.createGain(); master.gain.value = 0; master.connect(limiter);
+    const verb = ctx.createConvolver(); verb.buffer = reverbIR(2.8, 2.6);
+    const wet = ctx.createGain(); wet.gain.value = .3;
+    verbIn = ctx.createGain(); verbIn.connect(verb).connect(wet).connect(master);
+    // golpes y acordes que suenan aunque la música esté cortada
+    hits = ctx.createGain(); hits.connect(master); hits.connect(verbIn);
+    // lluvia: grabación real; dentro de la flor se oye apagada
+    rainLP = ctx.createBiquadFilter(); rainLP.type = 'lowpass'; rainLP.frequency.value = 16000;
+    rainGain = ctx.createGain(); rainGain.gain.value = 0; rainGain.connect(rainLP).connect(master);
+
+    const decode = ab => new Promise((res, rej) => ctx.decodeAudioData(ab, res, rej));
+    ready = Promise.all(FILES.map(n => fetch(`assets/audio/${n}.mp3`)
+      .then(r => r.arrayBuffer()).then(decode).then(b => { buffers[n] = b; }).catch(() => {})));
+  }
+
+  // Cada sección de música (la intro y lo de dentro de la flor) tiene su propia cadena: así, al cortar
+  // la intro se corta todo lo que ya estaba programado, y lo de dentro suena aparte, filtrado.
+  // out: salida de la sección; pump: «bombeo» de piano y bajo con cada bombo; pianoLP: filtro del piano.
+  function makeChain(lowpass) {
+    const out = ctx.createGain(), pump = ctx.createGain(), pianoLP = ctx.createBiquadFilter();
+    if (lowpass) {
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = lowpass; lp.Q.value = .5;
+      out.connect(lp).connect(master);
+    } else out.connect(master);
+    pianoLP.type = 'lowpass'; pianoLP.frequency.value = 18000; pianoLP.Q.value = .8;
+    const shelf = ctx.createBiquadFilter(); shelf.type = 'highshelf'; shelf.frequency.value = 2500; shelf.gain.value = 6;
+    pump.connect(pianoLP).connect(shelf); shelf.connect(out); shelf.connect(verbIn);
+    return {out, pump, pianoLP};
+  }
+
+  // reproduce una muestra; con len se corta (staccato) con una caída corta
+  function play(name, t, o = {}) {
+    const b = buffers[name]; if (!b) return;
+    const s = ctx.createBufferSource(); s.buffer = b;
+    if (o.rate) s.playbackRate.value = o.rate;
+    const g = ctx.createGain(), v = o.gain ?? 1;
+    g.gain.value = v;
+    s.connect(g).connect(o.out || chain.out);
+    s.start(t);
+    if (o.len) {
+      const rel = o.rel ?? .08;
+      g.gain.setValueAtTime(v, t + o.len);
+      g.gain.linearRampToValueAtTime(0, t + o.len + rel);
+      s.stop(t + o.len + rel + .02);
+    }
+  }
+  // nota: la muestra más cercana del instrumento, reafinada (el La2 es el La3 una octava abajo)
+  function note(kind, m, t, o) {
+    const set = kind === 'p' ? FELT : RHODES;
+    let h = set.reduce((a, b) => Math.abs(b - m) < Math.abs(a - m) ? b : a);
+    if (m < 50) h = 57;
+    play(kind + h, t, {...o, rate: Math.pow(2, (m - h) / 12)});
+  }
+  // bajo: seno + triángulo filtrado, corto
+  function bass(m, t, out, len = .2, gain = .16) {
+    const f = 440 * Math.pow(2, (m - 69) / 12);
+    const g = ctx.createGain(), lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 420;
+    [['sine', 1], ['triangle', .5]].forEach(([type, a]) => {
+      const o = ctx.createOscillator(), og = ctx.createGain();
+      o.type = type; o.frequency.value = f; og.gain.value = a;
+      o.connect(og).connect(lp); o.start(t); o.stop(t + len + .1);
+    });
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(gain, t + .008);
+    g.gain.setValueAtTime(gain, t + len);
+    g.gain.linearRampToValueAtTime(0, t + len + .06);
+    lp.connect(g).connect(out);
+  }
+  // lluvia en bucle sin cortes: segmentos solapados con fundido cruzado de 1 s
+  function scheduleRain(until) {
+    const b = buffers.rain; if (!b) return;
+    const segLen = b.duration - 1;
+    if (!rainUntil) rainUntil = ctx.currentTime;
+    while (rainUntil < until) {
+      const t = rainUntil, s = ctx.createBufferSource(), g = ctx.createGain();
+      s.buffer = b; s.connect(g).connect(rainGain);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t + 1);
+      g.gain.setValueAtTime(1, t + segLen); g.gain.linearRampToValueAtTime(0, t + segLen + 1);
+      s.start(t); s.stop(t + b.duration + .05);
+      rainUntil += segLen;
+    }
+  }
+
+  // Pieza original de deep house a 128 BPM: La menor 7 – Fa maj7 – Do – Sol, en bucle.
+  // Compás 1: piano eléctrico (que se «abre» con un filtro, como la flor) y bombo.
+  // Compás 2: palmada y charles. Desde el 3: bajo. Se corta justo antes de llegar al corazón de la flor.
+  const CHORDS = [[57, 60, 64, 69], [57, 60, 65, 69], [55, 60, 64, 67], [55, 59, 62, 67]];
+  const ROOTS = [45, 41, 48, 43];
+  const STABS = [0, 3, 6, 10, 12, 14];  // semicorcheas del piano: síncopa típica de house
+  const BASSES = [2, 6, 7, 10, 14];     // el bajo responde entre los golpes del bombo
+  let looping = false, barIdx = 0, nextBarT = 0;
+  function scheduleBar(b, t0) {
+    const c = b % 4, {pump, pianoLP} = chain;
+    for (let q = 0; q < 4; q++) {
+      const tq = t0 + q * beat;
+      play('kick_body', tq, {gain: b === 0 ? .45 : .6, len: .34, rel: .1, rate: KICK_RATE});
+      play('kick_click', tq, {gain: .8});
+      pump.gain.setValueAtTime(.32, tq);
+      pump.gain.linearRampToValueAtTime(1, tq + beat * .62);
+      if (b >= 1) {
+        if (q === 1 || q === 3) play('clap', tq, {gain: .9});
+        play('ohat', tq + beat / 2, {gain: .38, len: .14, rel: .1});
+        [1, 3].forEach(k => play('hat', tq + k * six, {gain: k === 3 ? .17 : .1, len: .04, rel: .03}));
+      }
+    }
+    if (b === 0) {   // el piano se abre a la vez que la flor
+      pianoLP.frequency.setValueAtTime(450, t0);
+      pianoLP.frequency.exponentialRampToValueAtTime(16000, t0 + bar * 1.6);
+    }
+    STABS.forEach((s, i) => CHORDS[c].forEach(m =>
+      note('r', m, t0 + s * six, {gain: i === 0 ? .6 : .5, len: .2, rel: .16, out: pump})));
+    if (b >= 2) BASSES.forEach((s, i) => bass(ROOTS[c] + (i % 2 ? 12 : 0), t0 + s * six, pump));
+  }
+  // programa los compases con unos segundos de antelación (no todo de golpe: más ligero en el móvil)
+  function tick() {
+    if (!ctx || !looping) return;
+    while (nextBarT < ctx.currentTime + 3) { scheduleBar(barIdx, nextBarT); barIdx++; nextBarT += bar; }
+  }
+
+  function start() {
+    if (!ctx) return;
     ctx.resume();
-
-    // salida: compresor suave → altavoz; bus = mezcla seca + reverberación larga
-    const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -18; comp.ratio.value = 3;
-    comp.connect(ctx.destination);
-    master = ctx.createGain(); master.gain.value = 0; master.connect(comp);
-    master.gain.linearRampToValueAtTime(.85, ctx.currentTime + .4);
-    bus = ctx.createGain();
-    const dry = ctx.createGain(); dry.gain.value = .65;
-    const verb = ctx.createConvolver(); verb.buffer = reverbIR(4.5, 2.4);
-    const wet = ctx.createGain(); wet.gain.value = .6;
-    bus.connect(dry).connect(master);
-    bus.connect(verb).connect(wet).connect(master);
-    seqBus = ctx.createGain(); seqBus.connect(bus); // la pieza con pulso: se funde en la zambullida
-
-    // lluvia: ruido filtrado, con una respiración muy lenta de volumen
-    const rain = ctx.createBufferSource(); rain.buffer = noiseBuffer(3); rain.loop = true;
-    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 800;
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 6500;
-    rainGain = ctx.createGain(); rainGain.gain.value = 0;
-    rain.connect(hp).connect(lp).connect(rainGain).connect(master);
-    const lfo = ctx.createOscillator(); lfo.frequency.value = .11;
-    const lfoAmt = ctx.createGain(); lfoAmt.gain.value = .012;
-    lfo.connect(lfoAmt).connect(rainGain.gain);
-    rain.start(); lfo.start();
-    rainGain.gain.linearRampToValueAtTime(.075, ctx.currentTime + 2.5);
-
+    const t = ctx.currentTime;
+    master.gain.setValueAtTime(0, t);
+    master.gain.linearRampToValueAtTime(muted ? 0 : MASTER, t + .03);
+    ready.then(() => {
+      scheduleRain(ctx.currentTime + 40);
+      rainGain.gain.setTargetAtTime(RAIN_LEVEL, ctx.currentTime, .6);
+    });
+    setInterval(() => { tick(); scheduleRain(ctx.currentTime + 40); }, 500);
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) ctx.suspend(); else ctx.resume();
     });
     G.to(muteBtn, {autoAlpha: 1, duration: 1, delay: .6});
   }
 
-  // nota de piano lejano: varios armónicos con ataque rápido y caída larga
-  function note(freq, when = 0, vol = .16, dur = 5, out = bus) {
-    if (!ctx) return;
-    const t = ctx.currentTime + when;
-    const g = ctx.createGain();
-    const tone = ctx.createBiquadFilter(); tone.type = 'lowpass'; tone.frequency.value = 2400;
-    g.connect(tone).connect(out);
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(vol, t + .012);
-    g.gain.exponentialRampToValueAtTime(vol * .3, t + .5);
-    g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-    [[1, 1], [2, .32], [3, .1], [4.02, .04]].forEach(([m, a]) => {
-      const o = ctx.createOscillator(), og = ctx.createGain();
-      o.frequency.value = freq * m; o.detune.value = (Math.random() - .5) * 6;
-      og.gain.value = a;
-      o.connect(og).connect(g);
-      o.start(t); o.stop(t + dur + .1);
-    });
-  }
-  const chord = (freqs, when, vol, dur) => freqs.forEach((f, i) => note(f, when + i * .045, vol, dur));
-
-  // latido grave y corto en los tiempos fuertes
-  function thump(when, vol = .2) {
-    const t = ctx.currentTime + when;
-    const o = ctx.createOscillator(), g = ctx.createGain();
-    o.frequency.setValueAtTime(95, t);
-    o.frequency.exponentialRampToValueAtTime(48, t + .18);
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(vol, t + .008);
-    g.gain.exponentialRampToValueAtTime(.0001, t + .3);
-    o.connect(g).connect(seqBus);
-    o.start(t); o.stop(t + .35);
-  }
-
-  const A2 = 110, E3 = 164.81, A3 = 220, C4 = 261.63, E4 = 329.63, G4 = 392, B4 = 493.88;
-  const f = (midi) => 440 * Math.pow(2, (midi - 69) / 12);
-
-  // golpes de ruido filtrado: charles (agudo y corto) y palmada (media y algo más larga)
-  let noiseBuf;
-  function hit(when, type, vol) {
-    const t = ctx.currentTime + when;
-    noiseBuf = noiseBuf || noiseBuffer(1);
-    const src = ctx.createBufferSource(); src.buffer = noiseBuf;
-    const flt = ctx.createBiquadFilter(), g = ctx.createGain();
-    if (type === 'hat') { flt.type = 'highpass'; flt.frequency.value = 7500; }
-    else { flt.type = 'bandpass'; flt.frequency.value = 1400; flt.Q.value = .9; }
-    const len = type === 'hat' ? .06 : .16;
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(vol, t + .003);
-    g.gain.exponentialRampToValueAtTime(.0001, t + len);
-    src.connect(flt).connect(g).connect(seqBus);
-    src.start(t, Math.random() * .5); src.stop(t + len + .02);
-  }
-  // bajo con algo de cuerpo: triángulo filtrado, corto
-  function bassNote(freq, when, vol = .13, len = .22) {
-    const t = ctx.currentTime + when;
-    const o = ctx.createOscillator(), flt = ctx.createBiquadFilter(), g = ctx.createGain();
-    o.type = 'triangle'; o.frequency.value = freq;
-    flt.type = 'lowpass'; flt.frequency.value = 600;
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(vol, t + .01);
-    g.gain.exponentialRampToValueAtTime(.0001, t + len);
-    o.connect(flt).connect(g).connect(seqBus);
-    o.start(t); o.stop(t + len + .05);
-  }
-
-  // Pieza original en clave de deep house, a 124 BPM: bombo a negras, charles a contratiempo,
-  // palmada en 2 y 4, acordes de piano cortados y sincopados que «bombean» con cada bombo,
-  // y un bajo que responde entre golpes. Progresión propia: La menor – Fa – Do – Sol.
-  function groove() {
-    if (!ctx) return;
-    const beat = 60 / 124, six = beat / 4, bar = beat * 4;
-    const CHORDS = [ // [bajo, acorde] en MIDI
-      [45, [57, 60, 64, 67]], // La menor 7
-      [41, [57, 60, 65, 69]], // Fa maj7 (con la en la base)
-      [48, [55, 60, 64, 67]], // Do
-      [43, [55, 59, 62, 67]], // Sol
-    ];
-    const STABS = [0, 3, 6, 10, 12, 14];   // posiciones de semicorchea del piano: síncopa típica de house
-    const BASS  = [2, 6, 7, 10, 14];        // el bajo cae entre los golpes del bombo
-    // los acordes pasan por un «bombeo»: se agachan en cada bombo y vuelven a subir
-    const pump = ctx.createGain(); pump.connect(seqBus);
-    seqBus.gain.setValueAtTime(.0001, ctx.currentTime);
-    seqBus.gain.exponentialRampToValueAtTime(1, ctx.currentTime + .5);
-    // cada compás se programa un momento antes de sonar (no todo de golpe: más ligero en el móvil)
-    const base = ctx.currentTime + .12;
-    CHORDS.forEach(([root, chordNotes], b) => {
-      G.delayedCall(Math.max(0, b * bar - .4), () => {
-        const t0 = base + b * bar - ctx.currentTime; // instante del compás, relativo a «ahora»
-        for (let q = 0; q < 4; q++) {
-          const tb = t0 + q * beat;
-          thump(tb, .24);
-          hit(tb + beat / 2, 'hat', .05);                     // charles a contratiempo
-          if (q === 1 || q === 3) hit(tb, 'clap', .06);         // palmada en 2 y 4
-          const pt = ctx.currentTime + tb;
-          pump.gain.setValueAtTime(.3, pt);
-          pump.gain.linearRampToValueAtTime(1, pt + beat * .55);
-        }
-        STABS.forEach((s, i) => chordNotes.forEach(n =>
-          note(f(n), t0 + s * six, i === 0 ? .055 : .045, .55, pump)));
-        BASS.forEach(s => bassNote(f(root), t0 + s * six));
-      });
-    });
-  }
-
   return {
+    init,
     start,
-    groove,
-    stamens: () => { note(1318.5, 0, .035, 3.5); note(1975.5, .18, .025, 3); },
-    // la zambullida: un soplo de aire que crece y un golpe grave al llegar
-    dive: () => {
+    tick,
+    groove() {
+      if (!ctx) return;
+      ready.then(() => { chain = makeChain(0); looping = true; barIdx = 0; nextBarT = ctx.currentTime + .03; tick(); });
+    },
+    // los estambres: dos notas agudas de piano, muy suaves
+    stamens() { if (!ctx) return; const t = ctx.currentTime; note('p', 76, t, {gain: .1, out: hits}); note('p', 83, t + .16, {gain: .07, out: hits}); },
+    // la zambullida: un soplo de aire que crece hasta la llegada (su pico cae a 1,96 s)
+    dive() { if (!ctx) return; play('riser', ctx.currentTime, {gain: .6, out: hits}); },
+    // la música se corta en seco un instante antes de llegar
+    stop() {
+      if (!ctx) return;
+      looping = false;
+      if (chain) chain.out.gain.setTargetAtTime(0, ctx.currentTime, .015);
+    },
+    // la llegada: el golpe grave (su pico, a 0,13 s, cae justo al llegar) y un acorde largo;
+    // después la música vuelve apagada y suave, como oída desde dentro de la flor, igual que la lluvia
+    arrive() {
+      if (!ctx) return;
+      const t = ctx.currentTime, hit = t + .13;
+      play('arrive', t, {gain: .9, out: hits});
+      [45, 52, 59, 60, 64, 71].forEach((m, i) => note('p', m, hit + i * .025, {gain: .2, len: 3.2, rel: 2.4, out: hits}));
+      rainLP.frequency.setTargetAtTime(900, hit, .25);
+      rainGain.gain.setTargetAtTime(RAIN_LEVEL * 1.1, hit, .4);
+      chain = makeChain(330);
+      chain.out.gain.setValueAtTime(0, hit + bar * .9);
+      chain.out.gain.linearRampToValueAtTime(.55, hit + bar * 2.5);
+      looping = true; barIdx = 2; nextBarT = hit + bar; tick();
+    },
+    inside() {},
+    // la firma: un acorde lento, arpegiado; la música de fondo se despide y queda la lluvia
+    signoff() {
       if (!ctx) return;
       const t = ctx.currentTime;
-      const src = ctx.createBufferSource(); src.buffer = noiseBuffer(2.5);
-      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.1;
-      bp.frequency.setValueAtTime(220, t);
-      bp.frequency.exponentialRampToValueAtTime(2600, t + 1.8);
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(.26, t + 1.7);
-      g.gain.exponentialRampToValueAtTime(.0001, t + 2.3);
-      src.connect(bp).connect(g); g.connect(master); g.connect(bus);
-      src.start(t); src.stop(t + 2.5);
-      const sub = ctx.createOscillator(), sg = ctx.createGain();
-      sub.frequency.setValueAtTime(72, t + 1.85);
-      sub.frequency.exponentialRampToValueAtTime(38, t + 3.2);
-      sg.gain.setValueAtTime(0, t + 1.85);
-      sg.gain.linearRampToValueAtTime(.3, t + 1.92);
-      sg.gain.exponentialRampToValueAtTime(.0001, t + 3.4);
-      sub.connect(sg).connect(master);
-      sub.start(t + 1.85); sub.stop(t + 3.5);
-      rainGain.gain.setTargetAtTime(.022, t + 1.2, .6); // dentro de la flor, la lluvia queda lejana
-      seqBus.gain.setTargetAtTime(.0001, t + .3, .45);  // la pieza se funde en el soplo
+      [45, 52, 60, 64, 71].forEach((m, i) => note('p', m, t + i * .07, {gain: .22, len: 4, rel: 3, out: hits}));
+      if (chain) chain.out.gain.setTargetAtTime(0, t + .5, 2);
+      setTimeout(() => { looping = false; }, 9000);
     },
-    inside: () => chord([A3, E4, B4], .4, .05, 6),
-    signoff: () => chord([A2, E3, C4, E4, B4], 0, .09, 8),
     toggle() {
       if (!ctx) return;
       muted = !muted;
-      master.gain.setTargetAtTime(muted ? 0 : .85, ctx.currentTime, .12);
+      master.gain.setTargetAtTime(muted ? 0 : MASTER, ctx.currentTime, .12);
       muteBtn.setAttribute('aria-pressed', String(muted));
       muteBtn.setAttribute('aria-label', muted ? 'Activar el sonido' : 'Silenciar el sonido');
     },
+    ready: () => ready,
   };
 })();
+Sound.init();
 muteBtn.addEventListener('click', e => { e.stopPropagation(); Sound.toggle(); });
 
 let renderer;
@@ -392,24 +415,36 @@ renderer.setClearColor(0x000000, 0);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, 1, .01, 60);
-const flower = new THREE.Group();
-scene.add(flower);
+const world = new THREE.Group();   // gira con la órbita de la cámara
+const flower = new THREE.Group();  // la flor principal
+scene.add(world);
+world.add(flower);
 
 // ---------- materiales: acuarela con luz suave; el envés de los pétalos, más oscuro ----------
 const LIGHT = new THREE.Vector3(.35, .75, .55).normalize();
 const VERT = `varying vec2 vUv; varying vec3 vN;
   void main(){ vUv = uv; vN = normalize(normalMatrix * normal);
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`;
-// Pétalos: las líneas de la acuarela (vetas y tinta) se usan como relieve —son surcos— y una luz
-// con brillo satinado y borde rojizo hace que ese relieve se note al moverse.
-const petalMaterial = tex => new THREE.ShaderMaterial({
-  uniforms: {map: {value: tex}, uLight: {value: LIGHT}, uBump: {value: .5}},
-  vertexShader: `varying vec2 vUv; varying vec3 vN; varying vec3 vView;
-    void main(){ vUv = uv; vN = normalize(normalMatrix * normal);
+// Pétalos: dibujo anime (rojo plano, contorno oscuro) con luz en dos o tres tonos planos.
+// La flor empieza pálida (el mismo dibujo en blanco y gris) y una mancha roja, como tinta en agua,
+// se extiende desde donde cae la gota (uDrop) según avanza uStain; el frente de la mancha es más oscuro.
+// STAIN y DROP se comparten entre todos los pétalos de la flor principal.
+const STAIN = {value: 0}, DROP = {value: new THREE.Vector3(0, .56, 0)};
+const FULL_RED = {value: 99};
+const petalMaterial = (tex, stain = STAIN) => new THREE.ShaderMaterial({
+  uniforms: {map: {value: tex}, uLight: {value: LIGHT}, uBump: {value: .5}, uStain: stain, uDrop: DROP},
+  vertexShader: `varying vec2 vUv; varying vec3 vN; varying vec3 vView; varying vec3 vLocal;
+    void main(){ vUv = uv; vN = normalize(normalMatrix * normal); vLocal = position;
       vec4 mv = modelViewMatrix * vec4(position, 1.); vView = -mv.xyz;
       gl_Position = projectionMatrix * mv; }`,
-  fragmentShader: `uniform sampler2D map; uniform vec3 uLight; uniform float uBump;
-    varying vec2 vUv; varying vec3 vN; varying vec3 vView;
+  fragmentShader: `uniform sampler2D map; uniform vec3 uLight; uniform float uBump; uniform float uStain; uniform vec3 uDrop;
+    varying vec2 vUv; varying vec3 vN; varying vec3 vView; varying vec3 vLocal;
+    float hash(vec3 p){ p = fract(p * .3183099 + .1); p *= 17.; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+    float noise(vec3 x){
+      vec3 i = floor(x), f = fract(x); f = f * f * (3. - 2. * f);
+      return mix(mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x), mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                 mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x), mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+    }
     // relieve generado por código, solo a gran escala: un surco suave en el nervio central y
     // un abombado hacia los bordes (las vetas ya están pintadas en la acuarela)
     float height(vec2 uv){
@@ -432,17 +467,27 @@ const petalMaterial = tex => new THREE.ShaderMaterial({
     void main(){
       vec4 t = texture2D(map, vUv);
       if (t.a < .45) discard;
+      // la mancha: distancia a la gota, con un borde irregular de tinta
+      float d = distance(vLocal, uDrop) + (noise(vLocal * 9.) - .5) * .16 + (noise(vLocal * 23.) - .5) * .05;
+      float reach = uStain * .9;
+      float stained = 1. - smoothstep(reach - .07, reach, d);
+      float front = (1. - smoothstep(0., .07, abs(d - reach + .035))) * step(.001, uStain) * step(uStain, 2.);
+      float lum = dot(t.rgb, vec3(.3, .59, .11));
+      vec3 pale = vec3(1.) * (.8 + .45 * lum);       // el mismo dibujo, en blanco y gris
+      vec3 base = mix(pale, t.rgb, stained);
+      base = mix(base, t.rgb * .45, front * .75);                // el frente de la tinta, más oscuro
       float face = gl_FrontFacing ? 1. : -1.;
       vec3 n = normalize(vN) * face;
       n = bumpNormal(-vView, n, face);
       vec3 V = normalize(vView);
       float diff = max(dot(n, uLight), 0.);
+      float toon = .5 + .3 * smoothstep(.22, .3, diff) + .25 * smoothstep(.62, .7, diff);  // tonos planos, estilo anime
       float spec = pow(max(dot(reflect(-uLight, n), V), 0.), 22.);
       float rim = pow(1. - max(dot(n, V), 0.), 3.);
-      vec3 c = t.rgb * (.46 + .72 * diff);
+      vec3 c = base * mix(.82 + .2 * toon, toon, stained);
       c += vec3(1., .82, .82) * spec * .12;         // brillo satinado sobre los relieves
-      c += vec3(.55, .05, .1) * rim * .22;          // borde rojizo
-      if (!gl_FrontFacing) c *= vec3(.62, .56, .58); // envés más apagado
+      c += mix(vec3(.25, .25, .28), vec3(.55, .05, .1), stained) * rim * .22;  // borde: gris en la flor pálida, rojizo al teñirse
+      if (!gl_FrontFacing) c *= mix(vec3(.86), vec3(.62, .56, .58), stained); // envés: gris neutro en blanco, rojizo al teñirse
       gl_FragColor = vec4(c, 1.);
     }`,
   side: THREE.DoubleSide,
@@ -465,8 +510,8 @@ function petalGeometry(flipU) {
   for (let j = 0; j <= NS; j++) for (let i = 0; i <= NU; i++) {
     const k = j * (NU + 1) + i;
     const u = flipU ? 1 - i / NU : i / NU;
-    uv[k * 2] = .25 + u * .46;               // recorte horizontal del pétalo en la imagen
-    uv[k * 2 + 1] = .042 + (j / NS) * .888;  // de la base (abajo) a la punta (arriba)
+    uv[k * 2] = .22 + u * .49;               // recorte horizontal del pétalo en la imagen
+    uv[k * 2 + 1] = .042 + (j / NS) * .875;  // de la base (abajo) a la punta (arriba)
   }
   for (let j = 0; j < NS; j++) for (let i = 0; i < NU; i++) {
     const a = j * (NU + 1) + i, b = a + 1, c = a + NU + 1, d = c + 1;
@@ -568,21 +613,26 @@ function updatePetal(p) {
 petals.forEach(updatePetal);
 
 // ---------- estambres y pistilo: tubos finos con antera ----------
-const stamenMat = solidMaterial(0xb8162c), antherMat = solidMaterial(0xc39a45), pistilMat = solidMaterial(0xd02a3e);
+const stamenMat = solidMaterial(0xc01a2c), antherMat = solidMaterial(0xc8792e), pistilMat = solidMaterial(0xd02a3e);
 const stamens = [];
 function makeStamen(az, size, pts, mat, anther) {
   const g = new THREE.Group();
   const curve = new THREE.CatmullRomCurve3(pts.map(([r, y]) => new THREE.Vector3(r, y, 0)));
-  g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 36, .0065, 5, false), mat));
+  const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 36, .0065, 5, false), mat);
+  g.add(tube);
+  g.userData.parts = [{mesh: tube, kind: 'tube'}];
   if (anther) {
     const a = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 6), antherMat);
     const end = curve.getPoint(1), tan = curve.getTangent(1);
     a.position.copy(end);
     a.scale.set(.034, .011, .013);
     a.rotation.z = Math.atan2(tan.y, tan.x) * .3;
+    a.updateMatrix();
     g.add(a);
+    g.userData.parts.push({mesh: a, kind: 'anther'});
   }
   g.rotation.y = -az * Math.PI / 180;
+  g.userData.rotY = g.rotation.y;
   g.userData.size = size;
   g.scale.setScalar(.04);
   flower.add(g);
@@ -595,18 +645,84 @@ const STAMEN_PTS = [[.02, .02], [.24, .22], [.52, .5], [.82, .82], [1, 1.06], [1
 makeStamen(0, 1, [[0, .02], [.04, .45], [.1, .95], [.17, 1.4], [.2, 1.5]], pistilMat, false);
 
 // núcleo del capullo: rellena los huecos entre pétalos cerrados y desaparece al abrirse
-const core = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), solidMaterial(0x6e0e1d));
+const coreMat = solidMaterial(0x6e0e1d), CORE_RED = coreMat.uniforms.uColor.value.clone();
+coreMat.uniforms.uColor.value.set(0xf2f2f5);
+const core = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), coreMat);
 core.scale.set(.1, .24, .1);
 core.position.y = .25;
 flower.add(core);
 
 // base de la flor y tallo
-const ovary = new THREE.Mesh(new THREE.SphereGeometry(.05, 14, 10), solidMaterial(0x34422b));
+const ovaryMat = solidMaterial(0x5a0c18), OVARY_RED = ovaryMat.uniforms.uColor.value.clone();
+ovaryMat.uniforms.uColor.value.set(0xf2f2f5);
+const ovary = new THREE.Mesh(new THREE.SphereGeometry(.05, 14, 10), ovaryMat);
 ovary.scale.y = .9;
 flower.add(ovary);
 const stemCurve = new THREE.CatmullRomCurve3([
   new THREE.Vector3(0, -.02, 0), new THREE.Vector3(.012, -1, 0), new THREE.Vector3(-.02, -2.6, .02), new THREE.Vector3(.03, -6, 0)]);
-flower.add(new THREE.Mesh(new THREE.TubeGeometry(stemCurve, 40, .024, 8, false), solidMaterial(0x2a3826)));
+const stemMat = solidMaterial(0x4a1018), STEM_RED = stemMat.uniforms.uColor.value.clone();
+stemMat.uniforms.uColor.value.set(0xe4e4e8);
+flower.add(new THREE.Mesh(new THREE.TubeGeometry(stemCurve, 40, .024, 8, false), stemMat));
+
+// ---------- la gota y su salpicadura ----------
+const dropMat = solidMaterial(0xd0182e);
+const drop = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), dropMat);
+drop.scale.set(.03, .05, .03);
+drop.position.set(0, 2.2, 0);
+drop.visible = false;
+flower.add(drop);
+const splash = Array.from({length: 12}, () => {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), dropMat);
+  m.visible = false; m.scale.setScalar(.012); flower.add(m); return m;
+});
+
+// ---------- el contagio: higanbanas que brotan alrededor ----------
+// Una copia de la flor ya abierta, con cada tipo de pieza fusionada en una sola malla
+// (6 dibujos por flor en vez de 36): así siete flores más siguen yendo fluidas en el móvil.
+const redPetalMats = {};
+for (const k of ['A', 'B', 'C']) redPetalMats[k] = petalMaterial(textures[k] || textures.A, FULL_RED);
+const stemRedMat = solidMaterial(0x4a1018);
+function buildFlowerTemplate() {
+  const byTex = {A: [], B: [], C: []};
+  PETALS.forEach((d, i) => {
+    const geo = petalGeometry(i % 2 === 1);
+    const p = {geo, phi: d.az * Math.PI / 180, r0: d.ring ? .03 : .046, open: 1, curlT: 1, bud: BUDS[d.ring], final: d};
+    updatePetal(p);
+    byTex[d.tex].push(geo);
+  });
+  const g = new THREE.Group();
+  for (const k in byTex) g.add(new THREE.Mesh(mergeGeometries(byTex[k]), redPetalMats[k]));
+  const tubes = [], anthers = [];
+  stamens.forEach(st => {
+    const size = st.userData.size;
+    const m = new THREE.Matrix4().makeRotationY(st.userData.rotY).multiply(new THREE.Matrix4().makeScale(size, size, size));
+    st.userData.parts.forEach(({mesh, kind}) => {
+      mesh.updateMatrix();
+      const geo = mesh.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(m, mesh.matrix));
+      (kind === 'tube' ? tubes : anthers).push(geo);
+    });
+  });
+  g.add(new THREE.Mesh(mergeGeometries(tubes), stamenMat));
+  g.add(new THREE.Mesh(mergeGeometries(anthers), antherMat));
+  const stem = new THREE.CatmullRomCurve3([new THREE.Vector3(0, -.02, 0), new THREE.Vector3(.02, -1.4, 0), new THREE.Vector3(-.02, -4, .02)]);
+  g.add(new THREE.Mesh(new THREE.TubeGeometry(stem, 24, .022, 6, false), stemRedMat));
+  return g;
+}
+const flowerTemplate = buildFlowerTemplate();
+// [x, z, escala, altura, giro]: algunas cerca de la cámara (z positivo), otras al fondo
+const FIELD = [[-1.5, -1.1, .9, -.2, .4], [1.6, -1.5, 1, -.05, 2.1], [-2.7, -3.1, 1.1, .05, 1.2],
+               [2.9, -2.7, .85, -.15, 3.3], [-1.05, 1.25, .72, -.5, 5.1], [1.25, 1.0, .68, -.55, .9], [.3, -3.5, 1.05, .15, 4.2]];
+const field = FIELD.map(([x, z, sc, y, ry]) => {
+  const g = flowerTemplate.clone();
+  g.position.set(x, y - .6, z);
+  g.rotation.y = ry;
+  g.scale.setScalar(.001);
+  g.visible = false;
+  g.userData.size = sc;
+  g.userData.y = y;
+  world.add(g);
+  return g;
+});
 
 // ---------- cámara ----------
 // La cámara orbita alrededor de un punto del eje de la flor: distancia, elevación y altura del punto.
@@ -620,7 +736,7 @@ function applyCamera() {
   const ce = Math.cos(cam.el);
   camera.position.set(0, cam.ty + Math.sin(cam.el) * cam.dist, ce * cam.dist);
   camera.lookAt(0, cam.ty, 0);
-  flower.rotation.y = cam.yaw;
+  world.rotation.y = cam.yaw;
   flower.scale.setScalar(cam.breathe);
 }
 function resize() {
@@ -652,7 +768,7 @@ if (!reduce) {
   idle = [
     G.to(cam, {breathe: 1.03, ...breath}),
     G.to(cam, {yaw: .35, duration: 5, ease: 'sine.inOut', yoyo: true, repeat: -1}),
-    G.fromTo(glowEl, {opacity: .55, scale: .92}, {opacity: 1, scale: 1.04, ...breath}),
+    G.fromTo(glowEl, {opacity: .22, scale: .92}, {opacity: .45, scale: 1.04, ...breath}),
     G.to(hint, {opacity: .95, ...breath, delay: 1.6}),
   ];
 }
@@ -674,51 +790,96 @@ function open() {
 function openFull() {
   const tl = G.timeline();
   const D = openDist();
+  // La gota revienta en el primer tiempo de la música; la llegada al corazón de la flor cae
+  // exactamente 6 compases después (128 BPM: un compás = 1,875 s).
+  const IMPACT = .55, BAR = 60 / 128 * 4, ARRIVAL = IMPACT + 6 * BAR;
 
-  tl.to(hint, {opacity: 0, y: 6, duration: .5, ease: 'power2.out'}, 0)
-    .to(glowEl, {opacity: 1, scale: 1.25, duration: 1.6, ease: 'sine.out'}, 0)
-    // el capullo late una vez
-    .to(cam, {breathe: 1.06, duration: .28, ease: 'power2.out'}, 0)
-    .to(cam, {breathe: 1, duration: .6, ease: 'power2.inOut'}, .28)
-    // la cámara se aleja y sube un poco mientras se abre
-    .to(cam, {dist: D, el: .3, ty: .22, duration: 3.6, ease: 'power2.inOut'}, .25)
-    .to(cam, {yaw: '+=0.5', duration: 4.4, ease: 'sine.inOut'}, .2);
+  tl.to(hint, {opacity: 0, y: 6, duration: .5, ease: 'power2.out'}, 0);
 
-  // pétalo a pétalo: se inclina hacia fuera, se alarga y, con algo de retraso, se enrolla hacia atrás
+  // 1 · la gota cae desde arriba, estirándose, y revienta en la punta del capullo
+  tl.set(drop, {visible: true}, 0)
+    .fromTo(drop.position, {y: 1.15}, {y: DROP.value.y + .02, duration: IMPACT, ease: 'power2.in'}, 0)
+    .fromTo(drop.scale, {y: .05}, {y: .085, duration: IMPACT, ease: 'power2.in'}, 0)
+    .set(drop, {visible: false}, IMPACT)
+    .add(() => splashOut(), IMPACT)
+    .add(Sound.groove, IMPACT)
+    .add(inkBurst, IMPACT)
+    .to(cam, {breathe: 1.07, duration: .16, ease: 'power2.out'}, IMPACT)
+    .to(cam, {breathe: 1, duration: .7, ease: 'power2.inOut'}, IMPACT + .16)
+    .to(glowEl, {opacity: 1, scale: 1.3, duration: 1.4, ease: 'sine.out'}, IMPACT);
+
+  // 2 · el rojo se extiende por la flor como tinta en agua; el núcleo y el tallo se tiñen también
+  tl.to(STAIN, {value: 2.2, duration: 2.4, ease: 'power1.inOut'}, IMPACT)
+    .to(coreMat.uniforms.uColor.value, {r: CORE_RED.r, g: CORE_RED.g, b: CORE_RED.b, duration: .9}, IMPACT + .1)
+    .to(ovaryMat.uniforms.uColor.value, {r: OVARY_RED.r, g: OVARY_RED.g, b: OVARY_RED.b, duration: 1}, IMPACT + 1.2)
+    .to(stemMat.uniforms.uColor.value, {r: STEM_RED.r, g: STEM_RED.g, b: STEM_RED.b, duration: 1.4}, IMPACT + 1.6);
+
+  // 3 · ya roja, se abre pétalo a pétalo; la cámara se aleja y sube un poco
+  const T0 = IMPACT + .4;
+  tl.to(cam, {dist: D, el: .3, ty: .22, duration: 3.4, ease: 'power2.inOut'}, T0)
+    .to(cam, {yaw: '+=0.5', duration: 4.2, ease: 'sine.inOut'}, T0);
   let bloomEnd = 0;
   OPEN_ORDER.map(i => petals[i]).forEach((p, k) => {
-    const t = .3 + k * .13 + (k % 3) * .025;
+    const t = T0 + k * .13 + (k % 3) * .025;
     tl.to(p, {open: 1, duration: 2, ease: 'power2.inOut', onUpdate: touch(p)}, t)
       .to(p, {curlT: 1, duration: 2.1, ease: 'power2.inOut', onUpdate: touch(p)}, t + .35);
     bloomEnd = Math.max(bloomEnd, t + 2.45);
   });
-  tl.add(Sound.groove, 0).add(Sound.stamens, 1.4);
-  // los estambres crecen desde el centro
-  stamens.forEach((s, i) => {
-    const t = 1.3 + i * .08;
-    tl.to(s.scale, {x: s.userData.size, y: s.userData.size, z: s.userData.size, duration: 1.7, ease: 'expo.out'}, t);
-    bloomEnd = Math.max(bloomEnd, t + 1.4);
+  stamens.forEach((st, i) => {
+    const t = T0 + 1 + i * .08;
+    tl.to(st.scale, {x: st.userData.size, y: st.userData.size, z: st.userData.size, duration: 1.7, ease: 'expo.out'}, t);
   });
-  tl.to(core.scale, {x: .02, y: .02, z: .02, duration: 1.2, ease: 'power2.in'}, .3)
-    .set(core, {visible: false}, 1.5);
-  tl.add(inkBurst, .5).add(inkRain, .9);
+  tl.add(Sound.stamens, T0 + 1.05)
+    .to(core.scale, {x: .02, y: .02, z: .02, duration: 1.2, ease: 'power2.in'}, T0)
+    .set(core, {visible: false}, T0 + 1.2)
+    .add(inkRain, T0 + .5);
 
-  // la cámara sube orbitando hasta mirar la flor desde arriba
-  tl.addLabel('orbit', bloomEnd + .3)
-    .to(cam, {el: 1.535, ty: .1, dist: D * .66, duration: 2.6, ease: 'power2.inOut'}, 'orbit')
-    .to(cam, {yaw: '+=1.1', duration: 4.2, ease: 'sine.inOut'}, 'orbit')
-    .to(glowEl, {opacity: .55, scale: 1.6, duration: 2, ease: 'sine.inOut'}, 'orbit')
-    .to([ambient, ...rains], {opacity: .35, duration: 2.6, ease: 'sine.inOut'}, 'orbit');
+  // 4 · el contagio: brotan higanbanas alrededor y la cámara baja a contrapicado
+  const FIELD_T = T0 + 2.65;
+  const order = [0, 4, 1, 5, 2, 3, 6];
+  order.forEach((i, k) => {
+    const g = field[i], t = FIELD_T + k * .26, sc = g.userData.size;
+    tl.set(g, {visible: true}, t)
+      .to(g.scale, {x: sc, y: sc, z: sc, duration: 1.3, ease: 'back.out(1.4)'}, t)
+      .to(g.position, {y: g.userData.y, duration: 1.3, ease: 'power3.out'}, t)
+      .add(() => G.to(g.rotation, {z: R(.03, .06) * (k % 2 ? 1 : -1), duration: R(2.4, 3.2),
+        ease: 'sine.inOut', yoyo: true, repeat: -1}), t + 1.2);
+  });
+  tl.to(cam, {el: -.16, ty: .55, dist: D * 1.12, duration: 2.6, ease: 'power2.inOut'}, FIELD_T + .3)
+    .to(cam, {yaw: '+=0.6', duration: 2.8, ease: 'sine.inOut'}, FIELD_T + .3);
 
-  // y desciende por el eje hasta el corazón de la flor
-  tl.addLabel('dive', 'orbit+=2.9')
-    .to(cam, {dist: .06, ty: .04, duration: 2, ease: 'power3.in'}, 'dive')
-    .add(Sound.dive, 'dive')
-    .to(flash, {keyframes: {opacity: [0, .1, 0]}, duration: .5, ease: 'none'}, 'dive+=1.55')
-    .to([canvas, glowEl], {opacity: 0, duration: .6, ease: 'power1.in'}, 'dive+=1.45')
-    .to([ambient, ...rains], {opacity: 0, duration: 1, ease: 'power2.in'}, 'dive+=.6')
-    .fromTo(interior, {opacity: 0, scale: 1.45}, {opacity: 1, scale: 1.08, duration: 1.9, ease: 'power2.out'}, 'dive+=1.3')
-    .add(goInside, 'dive+=2.1');
+  // 5 · la cámara sube orbitando hasta mirar desde arriba: la flor en el centro del anillo rojo
+  const ORBIT = ARRIVAL - 1.95 - 3.2;
+  tl.to(cam, {el: 1.535, ty: .1, dist: D * .8, duration: 2.6, ease: 'power2.inOut'}, ORBIT)
+    .to(cam, {yaw: '+=1.1', duration: 3.6, ease: 'sine.inOut'}, ORBIT)
+    .to(glowEl, {opacity: .55, scale: 1.6, duration: 2, ease: 'sine.inOut'}, ORBIT)
+    .to([ambient, ...rains], {opacity: .35, duration: 2.6, ease: 'sine.inOut'}, ORBIT);
+
+  // 6 · y desciende por el eje hasta el corazón de la flor (el golpe cae en el compás 6)
+  const DIVE = ARRIVAL - 1.95;
+  tl.to(cam, {dist: .06, ty: .04, duration: 2, ease: 'power3.in'}, DIVE)
+    .add(Sound.dive, DIVE)
+    .add(Sound.stop, DIVE + 1.6)      // la música se corta 0,35 s antes de llegar
+    .add(Sound.arrive, DIVE + 1.82)   // el golpe (pico a 0,13 s) cae justo al llegar
+    .to(flash, {keyframes: {opacity: [0, .1, 0]}, duration: .5, ease: 'none'}, DIVE + 1.55)
+    .to([canvas, glowEl], {opacity: 0, duration: .6, ease: 'power1.in'}, DIVE + 1.45)
+    .to([ambient, ...rains], {opacity: 0, duration: 1, ease: 'power2.in'}, DIVE + .6)
+    .fromTo(interior, {opacity: 0, scale: 1.45}, {opacity: 1, scale: 1.08, duration: 1.9, ease: 'power2.out'}, DIVE + 1.3)
+    .add(goInside, DIVE + 2.1);
+}
+
+// la salpicadura: gotitas que saltan desde la punta del capullo y caen
+function splashOut() {
+  const o = DROP.value;
+  splash.forEach((m, i) => {
+    const a = (i / splash.length) * Math.PI * 2 + R(-.2, .2), sp = R(.12, .3), up = R(.1, .28);
+    m.visible = true;
+    m.position.copy(o);
+    m.scale.setScalar(R(.008, .016));
+    G.to(m.position, {x: o.x + Math.cos(a) * sp, z: o.z + Math.sin(a) * sp, duration: .7, ease: 'power1.out'});
+    G.to(m.position, {keyframes: {y: [o.y + up, o.y - .25]}, duration: .7, ease: 'none'});
+    G.to(m.scale, {x: .001, y: .001, z: .001, duration: .7, ease: 'power2.in', onComplete: () => { m.visible = false; }});
+  });
 }
 
 function openReduced() {
@@ -726,10 +887,15 @@ function openReduced() {
   G.timeline()
     .to([hint, canvas], {opacity: 0, duration: .5}, 0)
     .add(() => {
+      STAIN.value = 99;
+      coreMat.uniforms.uColor.value.copy(CORE_RED);
+      stemMat.uniforms.uColor.value.copy(STEM_RED);
+      ovaryMat.uniforms.uColor.value.copy(OVARY_RED);
       petals.forEach(p => { p.open = 1; p.curlT = 1; p.dirty = true; });
-      stamens.forEach(s => s.scale.setScalar(s.userData.size));
+      stamens.forEach(st => st.scale.setScalar(st.userData.size));
+      field.forEach(g => { g.visible = true; g.scale.setScalar(g.userData.size); g.position.y = g.userData.y; });
       core.visible = false;
-      Object.assign(cam, {dist: openDist() * .66, el: 1.535, ty: .1});
+      Object.assign(cam, {dist: openDist() * .8, el: 1.535, ty: .1});
     }, .5)
     .to(canvas, {opacity: 1, duration: .9}, .55)
     .to([canvas, glowEl, ambient, ...rains], {opacity: 0, duration: .9}, 3)
@@ -747,7 +913,7 @@ function spawn(cls, w) {
   return el;
 }
 function flowerOnScreen() {
-  const v = new THREE.Vector3(0, .3, 0);
+  const v = DROP.value.clone();
   flower.localToWorld(v).project(camera);
   return {x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight};
 }
