@@ -256,7 +256,7 @@ const Sound = (() => {
   // a tempo (corchea con puntillo) cuyas repeticiones se oscurecen y se apagan, como si sonara a lo lejos.
   function voiceBus(out, t) {
     const inp = ctx.createGain();
-    const FADE = 1.6, curve = new Float32Array(64);
+    const FADE = 4, curve = new Float32Array(64);
     for (let i = 0; i < 64; i++) curve[i] = Math.sin(i / 63 * Math.PI / 2);
     inp.gain.setValueAtTime(0, t);
     inp.gain.setValueCurveAtTime(curve, t, FADE);
@@ -372,10 +372,10 @@ const Sound = (() => {
         [1, 3].forEach(k => play('hat', tq + k * six, {gain: k === 3 ? .2 : .12, len: .04, rel: .03}));
       }
     }
-    // la voz (6 s, a 132 BPM y en Si bemol como la pieza) entra en el compás 2, con la palmada y los charles;
+    // la voz (6 s, a 132 BPM y en Si bemol como la pieza) entra a mitad del compás 2 (dos tiempos después de la palmada y los charles);
     // su primer golpe (a 0,04 s del archivo) cae en el primer tiempo y termina antes de la zambullida.
     // Va de fondo: unos 8 dB por debajo de la música (medido con ponderación tipo LUFS), sin graves ni brillo y con más reverb, como lejana.
-    if (b === 1) play('voz', t0 - .04, {gain: 1.05, out: voiceBus(chain.out, t0 - .04)});
+    if (b === 1) play('voz', t0 - .04 + beat * 2, {gain: 1.05, out: voiceBus(chain.out, t0 - .04 + beat * 2)});
     if (b === 0) {   // el piano se abre a la vez que la flor
       pianoLP.frequency.setValueAtTime(450, t0);
       pianoLP.frequency.exponentialRampToValueAtTime(16000, t0 + bar * 1.6);
