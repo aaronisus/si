@@ -256,7 +256,7 @@ const Sound = (() => {
   // a tempo (corchea con puntillo) cuyas repeticiones se oscurecen y se apagan, como si sonara a lo lejos.
   function voiceBus(out, t) {
     const inp = ctx.createGain();
-    const FADE = 10, curve = new Float32Array(64);
+    const FADE = 5, curve = new Float32Array(64);
     for (let i = 0; i < 64; i++) curve[i] = Math.sin(i / 63 * Math.PI / 2);
     inp.gain.setValueAtTime(0, t);
     inp.gain.setValueCurveAtTime(curve, t, FADE);
