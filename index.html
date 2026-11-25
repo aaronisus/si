@@ -250,6 +250,19 @@ const Sound = (() => {
     return {out, pump, pianoLP, subPump};
   }
 
+  // la voz, de fondo: sin graves (deja sitio al bombo y al bajo), con menos presencia (2,8 kHz) y sin brillo
+  // (por encima de 5,5 kHz), para que se oiga detrás de la música; y más reverb, para que suene lejos
+  function voiceBus(out) {
+    const inp = ctx.createGain();
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 250; hp.Q.value = .7;
+    const pres = ctx.createBiquadFilter(); pres.type = 'peaking'; pres.frequency.value = 2800; pres.Q.value = 1; pres.gain.value = -4;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5500; lp.Q.value = .6;
+    const send = ctx.createGain(); send.gain.value = .6;
+    inp.connect(hp).connect(pres).connect(lp);
+    lp.connect(out); lp.connect(send).connect(verbIn);
+    return inp;
+  }
+
   // reproduce una muestra; con len se corta (staccato) con una caída corta
   function play(name, t, o = {}) {
     const b = buffers[name]; if (!b) return;
@@ -346,8 +359,9 @@ const Sound = (() => {
       }
     }
     // la voz (6 s, a 132 BPM y en Si bemol como la pieza) entra en el compás 2, con la palmada y los charles;
-    // su primer golpe (a 0,04 s del archivo) cae en el primer tiempo y termina antes de la zambullida
-    if (b === 1) play('voz', t0 - .04, {gain: 1.2});
+    // su primer golpe (a 0,04 s del archivo) cae en el primer tiempo y termina antes de la zambullida.
+    // Va de fondo: unos 8 dB por debajo de la música (medido con ponderación tipo LUFS), sin graves ni brillo y con más reverb, como lejana.
+    if (b === 1) play('voz', t0 - .04, {gain: 1.05, out: voiceBus(chain.out)});
     if (b === 0) {   // el piano se abre a la vez que la flor
       pianoLP.frequency.setValueAtTime(450, t0);
       pianoLP.frequency.exponentialRampToValueAtTime(16000, t0 + bar * 1.6);
