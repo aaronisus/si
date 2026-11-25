@@ -188,7 +188,7 @@ const Sound = (() => {
   const FELT = [52, 55, 57, 59, 60, 62, 64, 65, 67, 69, 71];  // piano de fieltro: acordes largos
   const RHODES = [55, 57, 59, 60, 62, 64, 65, 67, 69];         // piano eléctrico: acordes del groove
   const FILES = [...FELT.map(m => 'p' + m), ...RHODES.map(m => 'r' + m),
-                 'kick_body', 'kick_click', 'hat', 'ohat', 'clap', 'riser', 'arrive', 'rain', 'gota'];
+                 'kick_body', 'kick_click', 'hat', 'ohat', 'clap', 'riser', 'arrive', 'rain', 'gota', 'voz'];
   const BPM = 132, beat = 60 / BPM, six = beat / 4, bar = beat * 4; // 6 compases = gota → llegada
   const MASTER = .55;
   const KICK_RATE = Math.pow(2, 4 / 12); // el cuerpo del bombo suena en Fa#1: afinado a La1, la tónica      // nivel general: unos -16 LUFS mientras suena el groove
@@ -345,6 +345,9 @@ const Sound = (() => {
         [1, 3].forEach(k => play('hat', tq + k * six, {gain: k === 3 ? .2 : .12, len: .04, rel: .03}));
       }
     }
+    // la voz (6 s, a 132 BPM y en Si bemol como la pieza) entra en el compás 2, con la palmada y los charles;
+    // su primer golpe (a 0,04 s del archivo) cae en el primer tiempo y termina antes de la zambullida
+    if (b === 1) play('voz', t0 - .04, {gain: 1.2});
     if (b === 0) {   // el piano se abre a la vez que la flor
       pianoLP.frequency.setValueAtTime(450, t0);
       pianoLP.frequency.exponentialRampToValueAtTime(16000, t0 + bar * 1.6);
