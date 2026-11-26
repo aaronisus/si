@@ -11,7 +11,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&family=Spectral:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
-<!-- solo los tres caracteres de 彼岸花 -->
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500&text=%E5%BD%BC%E5%B2%B8%E8%8A%B1&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -30,7 +29,7 @@
     -webkit-font-smoothing:antialiased;overflow-x:hidden;-webkit-tap-highlight-color:transparent;
   }
 
-  /* ---------- capas de ambiente ---------- */
+  /* ambiente */
   .layer{position:fixed;pointer-events:none}
   .ambient{inset:-4%;z-index:0;
     background:
@@ -71,7 +70,6 @@
     writing-mode:vertical-rl;font-family:"Shippori Mincho", serif;font-weight:500;
     font-size:15px;letter-spacing:.55em;color:#c22a3c;opacity:.75}
 
-  /* toda la pantalla es la zona para tocar */
   .tap{position:fixed;inset:0;z-index:6;margin:0;padding:0;border:0;background:none;color:inherit;font:inherit;
     cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none}
   .tap:focus-visible{outline:none}
@@ -80,7 +78,7 @@
     text-align:center;font-style:italic;font-size:.95rem;letter-spacing:.1em;color:var(--ash);opacity:0;
     text-shadow:0 0 6px #060405, 0 0 14px #060405, 0 0 22px #060405}
 
-  /* ---------- la carta, dentro de la flor ---------- */
+  /* carta */
   .letter{display:none;position:relative;z-index:5;
     padding:30dvh var(--gutter) calc(32dvh + env(safe-area-inset-bottom))}
   .letter-inner{max-width:30rem;margin:0 auto}
@@ -91,7 +89,7 @@
     font-family:"Instrument Serif", Georgia, serif;font-style:italic;font-weight:400;
     font-size:2.9rem;line-height:1;color:var(--ember);text-shadow:0 0 24px rgba(0,0,0,.9)}
 
-  /* botón de silencio: aparece tras el toque, discreto en una esquina */
+  /* botón de silencio */
   .mute{position:fixed;z-index:10;right:calc(env(safe-area-inset-right) + 14px);bottom:calc(env(safe-area-inset-bottom) + 14px);
     width:44px;height:44px;margin:0;padding:0;border-radius:50%;border:1px solid rgba(233,228,225,.16);
     background:rgba(6,4,5,.4);color:var(--ash-dim);display:grid;place-items:center;cursor:pointer;
@@ -104,7 +102,7 @@
   html.inside .tap, html.inside .gl, html.inside .glow{display:none}
   html.inside .letter{display:block}
 
-  /* sin 3D (navegador sin WebGL o sin conexión al CDN): directamente la carta */
+  /* sin webgl: carta directa */
   html.no-3d .tap, html.no-3d .gl, html.no-3d .glow{display:none}
   html.no-3d .interior{opacity:1}
   html.no-3d .letter{display:block}
@@ -135,7 +133,6 @@
 
 <main class="letter">
   <div class="letter-inner">
-    <!-- ✏️ AQUÍ VA TU TEXTO: un <p> por párrafo. Puedes poner tantos como quieras. -->
 <p>Llevo tiempo dándole vueltas a cómo decirte esto, así que voy a empezar por el principio.</p>
 <p class="date">20/6/26</p>
 <p>Cuando te conocí, no voy a negar que me llamaste la atención. Pero te veía como alguien inalcanzable, así que ni me planteé intentarlo y seguí con lo mío.</p>
@@ -154,7 +151,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script>
-  // Si en 10 s no ha arrancado el 3D (sin WebGL, sin conexión al CDN...), se muestra la carta directamente.
+  // si el 3d no carga en 10 s, carta directa
   window.__noFlower = () => { document.documentElement.classList.add('no-3d'); document.documentElement.classList.remove('locked'); };
   setTimeout(() => { if (!window.__flowerReady) window.__noFlower(); }, 10000);
 </script>
@@ -167,8 +164,6 @@ import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 
 const root = document.documentElement;
-// Siempre la animación completa, aunque el sistema pida reducir el movimiento.
-// Para volver a respetarlo: const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const reduce = false;
 const G = window.gsap;
 const $ = s => document.querySelector(s);
@@ -178,20 +173,18 @@ const interior = $('.interior'), fx = $('.fx'), flash = $('.flash');
 const reveal = [...document.querySelectorAll('.letter p')];
 const muteBtn = $('.mute');
 
-// ---------- sonido: grabaciones reales (piano, batería, lluvia, efectos) hechas con earshot ----------
-// El contexto se crea al cargar (en pausa) para decodificar las muestras a tiempo; el sonido
-// solo empieza con el toque de ella (los navegadores no permiten audio antes de una interacción).
+// ---- sonido ----
 const Sound = (() => {
   let ctx, master, verbIn, hits, rainGain, rainLP, ready, chain;
   let muted = false, rainUntil = 0;
   const buffers = {};
-  const FELT = [52, 55, 57, 59, 60, 62, 64, 65, 67, 69, 71];  // piano de fieltro: acordes largos
-  const RHODES = [55, 57, 59, 60, 62, 64, 65, 67, 69];         // piano eléctrico: acordes del groove
+  const FELT = [52, 55, 57, 59, 60, 62, 64, 65, 67, 69, 71];
+  const RHODES = [55, 57, 59, 60, 62, 64, 65, 67, 69];
   const FILES = [...FELT.map(m => 'p' + m), ...RHODES.map(m => 'r' + m),
                  'kick_body', 'kick_click', 'hat', 'ohat', 'clap', 'riser', 'arrive', 'rain', 'gota', 'voz'];
-  const BPM = 132, beat = 60 / BPM, six = beat / 4, bar = beat * 4; // 6 compases = gota → llegada
+  const BPM = 132, beat = 60 / BPM, six = beat / 4, bar = beat * 4;
   const MASTER = .55;
-  const KICK_RATE = Math.pow(2, 4 / 12); // el cuerpo del bombo suena en Fa#1: afinado a La1, la tónica      // nivel general: unos -16 LUFS mientras suena el groove
+  const KICK_RATE = Math.pow(2, 4 / 12);
   const RAIN_LEVEL = .3;
 
   const reverbIR = (secs, decay) => {
@@ -205,10 +198,9 @@ const Sound = (() => {
 
   function init() {
     try {
-      if (navigator.audioSession) navigator.audioSession.type = 'playback'; // iPhone: suena con el interruptor de silencio
+      if (navigator.audioSession) navigator.audioSession.type = 'playback';
       ctx = new (window.AudioContext || window.webkitAudioContext)();
     } catch (e) { ready = Promise.resolve(); return; }
-    // salida: limitador suave para que nada sature en el altavoz del móvil
     const limiter = ctx.createDynamicsCompressor();
     limiter.threshold.value = -6; limiter.knee.value = 6; limiter.ratio.value = 12;
     limiter.attack.value = .003; limiter.release.value = .2;
@@ -217,9 +209,7 @@ const Sound = (() => {
     const verb = ctx.createConvolver(); verb.buffer = reverbIR(2.8, 2.6);
     const wet = ctx.createGain(); wet.gain.value = .3;
     verbIn = ctx.createGain(); verbIn.connect(verb).connect(wet).connect(master);
-    // golpes y acordes que suenan aunque la música esté cortada
     hits = ctx.createGain(); hits.connect(master); hits.connect(verbIn);
-    // lluvia: grabación real; dentro de la flor se oye apagada
     rainLP = ctx.createBiquadFilter(); rainLP.type = 'lowpass'; rainLP.frequency.value = 16000;
     rainGain = ctx.createGain(); rainGain.gain.value = 0; rainGain.connect(rainLP).connect(master);
 
@@ -228,12 +218,8 @@ const Sound = (() => {
       .then(r => r.arrayBuffer()).then(decode).then(b => { buffers[n] = b; }).catch(() => {})));
   }
 
-  // Cada sección de música (la intro y lo de dentro de la flor) tiene su propia cadena: así, al cortar
-  // la intro se corta todo lo que ya estaba programado, y lo de dentro suena aparte, filtrado.
-  // out: salida de la sección; pump: «bombeo» de piano y bajo con cada bombo; pianoLP: filtro del piano.
   function makeChain(lowpass) {
     const out = ctx.createGain(), pump = ctx.createGain(), pianoLP = ctx.createBiquadFilter();
-    // ecualización de la mezcla: menos barro (350 Hz) y más aire (5 kHz), como en la referencia
     const mud = ctx.createBiquadFilter(); mud.type = 'peaking'; mud.frequency.value = 350; mud.Q.value = .9; mud.gain.value = -4;
     const air = ctx.createBiquadFilter(); air.type = 'highshelf'; air.frequency.value = 5000; air.gain.value = 1.5;
     out.connect(mud).connect(air);
@@ -245,15 +231,10 @@ const Sound = (() => {
     const shelf = ctx.createBiquadFilter(); shelf.type = 'highshelf'; shelf.frequency.value = 2500; shelf.gain.value = 3;
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 150; hp.Q.value = .6;
     pump.connect(pianoLP).connect(hp).connect(shelf); shelf.connect(out); shelf.connect(verbIn);
-    // el sub-bajo va aparte: también «bombea», pero sin el paso alto
     const subPump = ctx.createGain(); subPump.connect(out);
     return {out, pump, pianoLP, subPump};
   }
 
-  // la voz, de fondo: sin graves (deja sitio al bombo y al bajo), con menos presencia (2,8 kHz) y sin brillo
-  // (por encima de 5,5 kHz), para que se oiga detrás de la música; y más reverb, para que suene lejos.
-  // Entra en fundido desde 0 (curva de igual potencia, 1,6 s: cubre la primera frase) y lleva un eco
-  // a tempo (corchea con puntillo) cuyas repeticiones se oscurecen y se apagan, como si sonara a lo lejos.
   function voiceBus(out, t) {
     const inp = ctx.createGain();
     const FADE = 5, curve = new Float32Array(64);
@@ -266,7 +247,6 @@ const Sound = (() => {
     const send = ctx.createGain(); send.gain.value = .6;
     inp.connect(hp).connect(pres).connect(lp);
     lp.connect(out); lp.connect(send).connect(verbIn);
-    // el eco: retardo de 3/4 de tiempo con realimentación filtrada (cada repetición más apagada y fina)
     const dl = ctx.createDelay(1); dl.delayTime.value = beat * .75;
     const fb = ctx.createGain(); fb.gain.value = .38;
     const fbLP = ctx.createBiquadFilter(); fbLP.type = 'lowpass'; fbLP.frequency.value = 2600;
@@ -277,7 +257,6 @@ const Sound = (() => {
     return inp;
   }
 
-  // reproduce una muestra; con len se corta (staccato) con una caída corta
   function play(name, t, o = {}) {
     const b = buffers[name]; if (!b) return;
     const s = ctx.createBufferSource(); s.buffer = b;
@@ -293,7 +272,6 @@ const Sound = (() => {
       s.stop(t + o.len + rel + .02);
     }
   }
-  // nota: la muestra más cercana del instrumento, reafinada (el La2 es el La3 una octava abajo)
   function note(kind, m, t, o) {
     const set = kind === 'p' ? FELT : RHODES;
     let h = set.reduce((a, b) => Math.abs(b - m) < Math.abs(a - m) ? b : a);
@@ -317,7 +295,6 @@ const Sound = (() => {
     g.gain.linearRampToValueAtTime(0, t + len + .08);
     lp.connect(g).connect(out);
   }
-  // bajo: seno + triángulo filtrado, corto
   function bass(m, t, out, len = .2, gain = .16) {
     const f = 440 * Math.pow(2, (m - 69) / 12);
     const g = ctx.createGain(), lp = ctx.createBiquadFilter();
@@ -333,7 +310,6 @@ const Sound = (() => {
     g.gain.linearRampToValueAtTime(0, t + len + .06);
     lp.connect(g).connect(out);
   }
-  // lluvia en bucle sin cortes: segmentos solapados con fundido cruzado de 1 s
   function scheduleRain(until) {
     const b = buffers.rain; if (!b) return;
     const segLen = b.duration - 1;
@@ -348,13 +324,11 @@ const Sound = (() => {
     }
   }
 
-  // Pieza original de tech house a 132 BPM: Si bemol menor – Sol bemol – Re bemol – La bemol, en bucle.
-  // Compás 1: piano eléctrico (que se «abre» con un filtro, como la flor) y bombo.
-  // Compás 2: palmada y charles. Desde el 3: bajo. Se corta justo antes de llegar al corazón de la flor.
+  // groove: Sib m - Solb - Reb - Lab a 132
   const CHORDS = [[58, 61, 65, 70], [58, 61, 66, 70], [56, 61, 65, 68], [56, 60, 63, 68]];
   const ROOTS = [46, 42, 49, 44];
-  const STABS = [0, 3, 6, 10, 12, 14];  // semicorcheas del piano: síncopa típica de house
-  const BASSES = [2, 6, 7, 10, 14];     // el bajo responde entre los golpes del bombo
+  const STABS = [0, 3, 6, 10, 12, 14];
+  const BASSES = [2, 6, 7, 10, 14];
   let looping = false, barIdx = 0, nextBarT = 0;
   function scheduleBar(b, t0) {
     const c = b % 4, {pump, pianoLP, subPump} = chain;
@@ -372,11 +346,8 @@ const Sound = (() => {
         [1, 3].forEach(k => play('hat', tq + k * six, {gain: k === 3 ? .2 : .12, len: .04, rel: .03}));
       }
     }
-    // la voz (6 s, a 132 BPM y en Si bemol como la pieza) entra a mitad del compás 2 (dos tiempos después de la palmada y los charles);
-    // su primer golpe (a 0,04 s del archivo) cae en el primer tiempo y termina antes de la zambullida.
-    // Va de fondo: unos 8 dB por debajo de la música (medido con ponderación tipo LUFS), sin graves ni brillo y con más reverb, como lejana.
     if (b === 1) play('voz', t0 - .04 + beat * 2, {gain: 1.05, out: voiceBus(chain.out, t0 - .04 + beat * 2)});
-    if (b === 0) {   // el piano se abre a la vez que la flor
+    if (b === 0) {
       pianoLP.frequency.setValueAtTime(450, t0);
       pianoLP.frequency.exponentialRampToValueAtTime(16000, t0 + bar * 1.6);
     }
@@ -386,7 +357,6 @@ const Sound = (() => {
     }));
     if (b >= 2) BASSES.forEach((s, i) => bass(ROOTS[c] - 12 + (i % 2 ? 12 : 0), t0 + s * six, subPump, .2, .2));
   }
-  // programa los compases con unos segundos de antelación (no todo de golpe: más ligero en el móvil)
   function tick() {
     if (!ctx || !looping) return;
     while (nextBarT < ctx.currentTime + 3) { scheduleBar(barIdx, nextBarT); barIdx++; nextBarT += bar; }
@@ -417,20 +387,14 @@ const Sound = (() => {
       if (!ctx) return;
       ready.then(() => { chain = makeChain(0); looping = true; barIdx = 0; nextBarT = ctx.currentTime + .03; tick(); });
     },
-    // la gota de sangre al tocar la flor (grabación real, algo más grave y con cuerpo; pico a 0,01 s)
     drop() { if (!ctx) return; play('gota', ctx.currentTime, {gain: 1, out: hits}); },
-    // los estambres: dos notas agudas de piano, muy suaves
     stamens() { if (!ctx) return; const t = ctx.currentTime; note('p', 65, t, {gain: .12, out: hits}); note('p', 70, t + .16, {gain: .1, out: hits}); },
-    // la zambullida: un soplo de aire que crece hasta la llegada (su pico cae a 1,96 s)
     dive() { if (!ctx) return; play('riser', ctx.currentTime, {gain: .6, out: hits}); },
-    // la música se corta en seco un instante antes de llegar
     stop() {
       if (!ctx) return;
       looping = false;
       if (chain) chain.out.gain.setTargetAtTime(0, ctx.currentTime, .015);
     },
-    // la llegada: el golpe grave (su pico, a 0,13 s, cae justo al llegar) y un acorde largo;
-    // después la música vuelve apagada y suave, como oída desde dentro de la flor, igual que la lluvia
     arrive() {
       if (!ctx) return;
       const t = ctx.currentTime, hit = t + .13;
@@ -444,7 +408,6 @@ const Sound = (() => {
       looping = true; barIdx = 2; nextBarT = hit + bar; tick();
     },
     inside() {},
-    // la firma: un acorde lento, arpegiado; la música de fondo se despide y queda la lluvia
     signoff() {
       if (!ctx) return;
       const t = ctx.currentTime;
@@ -471,25 +434,21 @@ try {
   renderer = new THREE.WebGLRenderer({canvas, alpha: true, antialias: true, powerPreference: 'high-performance'});
 } catch (e) { window.__noFlower(); throw e; }
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.outputColorSpace = THREE.LinearSRGBColorSpace; // los colores de las acuarelas pasan tal cual
+renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 renderer.setClearColor(0x000000, 0);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, 1, .01, 60);
-const world = new THREE.Group();   // gira con la órbita de la cámara
-const flower = new THREE.Group();  // la flor principal
+const world = new THREE.Group();
+const flower = new THREE.Group();
 scene.add(world);
 world.add(flower);
 
-// ---------- materiales: acuarela con luz suave; el envés de los pétalos, más oscuro ----------
+// ---- materiales ----
 const LIGHT = new THREE.Vector3(.35, .75, .55).normalize();
 const VERT = `varying vec2 vUv; varying vec3 vN;
   void main(){ vUv = uv; vN = normalize(normalMatrix * normal);
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`;
-// Pétalos: dibujo anime (rojo plano, contorno oscuro) con luz en dos o tres tonos planos.
-// La flor empieza pálida (el mismo dibujo en blanco y gris) y una mancha roja, como tinta en agua,
-// se extiende desde donde cae la gota (uDrop) según avanza uStain; el frente de la mancha es más oscuro.
-// STAIN y DROP se comparten entre todos los pétalos de la flor principal.
 const STAIN = {value: 0}, DROP = {value: new THREE.Vector3(0, .5, 0)};
 const FULL_RED = {value: 99};
 const petalMaterial = (tex, stain = STAIN) => new THREE.ShaderMaterial({
@@ -506,15 +465,12 @@ const petalMaterial = (tex, stain = STAIN) => new THREE.ShaderMaterial({
       return mix(mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x), mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
                  mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x), mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
     }
-    // relieve generado por código, solo a gran escala: un surco suave en el nervio central y
-    // un abombado hacia los bordes (las vetas ya están pintadas en la acuarela)
     float height(vec2 uv){
-      float u = (uv.x - .48) / .46;                     // de un borde (-0,5) al otro (0,5)
+      float u = (uv.x - .48) / .46;
       float midrib = exp(-pow(u / .1, 2.));
       float swell = 1. - pow(abs(u) * 2., 2.);
       return swell * .6 - midrib;
     }
-    // relieve a partir de la textura con derivadas de pantalla (mismo método que el bumpMap de three.js)
     vec3 bumpNormal(vec3 pos, vec3 n, float face){
       vec2 dx = dFdx(vUv), dy = dFdy(vUv);
       vec2 dH = uBump * vec2(height(vUv + dx * 2.) - height(vUv - dx * 2.),
@@ -528,27 +484,26 @@ const petalMaterial = (tex, stain = STAIN) => new THREE.ShaderMaterial({
     void main(){
       vec4 t = texture2D(map, vUv);
       if (t.a < .45) discard;
-      // la mancha: distancia a la gota, con un borde irregular de tinta
       float d = distance(vLocal, uDrop) + (noise(vLocal * 9.) - .5) * .16 + (noise(vLocal * 23.) - .5) * .05;
       float reach = uStain * .9;
       float stained = 1. - smoothstep(reach - .07, reach, d);
       float front = (1. - smoothstep(0., .07, abs(d - reach + .035))) * step(.001, uStain) * step(uStain, 2.);
       float lum = dot(t.rgb, vec3(.3, .59, .11));
-      vec3 pale = vec3(1.) * (.8 + .45 * lum);       // el mismo dibujo, en blanco y gris
+      vec3 pale = vec3(1.) * (.8 + .45 * lum);
       vec3 base = mix(pale, t.rgb, stained);
-      base = mix(base, t.rgb * .45, front * .75);                // el frente de la tinta, más oscuro
+      base = mix(base, t.rgb * .45, front * .75);
       float face = gl_FrontFacing ? 1. : -1.;
       vec3 n = normalize(vN) * face;
       n = bumpNormal(-vView, n, face);
       vec3 V = normalize(vView);
       float diff = max(dot(n, uLight), 0.);
-      float toon = .5 + .3 * smoothstep(.22, .3, diff) + .25 * smoothstep(.62, .7, diff);  // tonos planos, estilo anime
+      float toon = .5 + .3 * smoothstep(.22, .3, diff) + .25 * smoothstep(.62, .7, diff);
       float spec = pow(max(dot(reflect(-uLight, n), V), 0.), 22.);
       float rim = pow(1. - max(dot(n, V), 0.), 3.);
       vec3 c = base * mix(.82 + .2 * toon, toon, stained);
-      c += vec3(1., .82, .82) * spec * .12;         // brillo satinado sobre los relieves
-      c += mix(vec3(.25, .25, .28), vec3(.55, .05, .1), stained) * rim * .22;  // borde: gris en la flor pálida, rojizo al teñirse
-      if (!gl_FrontFacing) c *= mix(vec3(.86), vec3(.62, .56, .58), stained); // envés: gris neutro en blanco, rojizo al teñirse
+      c += vec3(1., .82, .82) * spec * .12;
+      c += mix(vec3(.25, .25, .28), vec3(.55, .05, .1), stained) * rim * .22;
+      if (!gl_FrontFacing) c *= mix(vec3(.86), vec3(.62, .56, .58), stained);
       gl_FragColor = vec4(c, 1.);
     }`,
   side: THREE.DoubleSide,
@@ -562,7 +517,7 @@ const solidMaterial = hex => new THREE.ShaderMaterial({
   side: THREE.DoubleSide,
 });
 
-// ---------- pétalos: tiras flexibles con la acuarela como textura ----------
+// ---- pétalos ----
 const NU = 10, NS = 48;
 function petalGeometry(flipU) {
   const g = new THREE.BufferGeometry();
@@ -571,12 +526,12 @@ function petalGeometry(flipU) {
   for (let j = 0; j <= NS; j++) for (let i = 0; i <= NU; i++) {
     const k = j * (NU + 1) + i;
     const u = flipU ? 1 - i / NU : i / NU;
-    uv[k * 2] = .22 + u * .49;               // recorte horizontal del pétalo en la imagen
-    uv[k * 2 + 1] = .042 + (j / NS) * .875;  // de la base (abajo) a la punta (arriba)
+    uv[k * 2] = .22 + u * .49;
+    uv[k * 2 + 1] = .042 + (j / NS) * .875;
   }
   for (let j = 0; j < NS; j++) for (let i = 0; i < NU; i++) {
     const a = j * (NU + 1) + i, b = a + 1, c = a + NU + 1, d = c + 1;
-    idx.push(a, b, c, b, d, c);              // cara delantera = cara interior del pétalo
+    idx.push(a, b, c, b, d, c);
   }
   g.setIndex(idx);
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
@@ -584,8 +539,6 @@ function petalGeometry(flipU) {
   return g;
 }
 
-// Forma de un pétalo: se inclina desde la base (tilt), la punta se enrolla hacia atrás (curl)
-// y los bordes se ahuecan hacia el centro (cup). Todo se recalcula en cada fotograma.
 function shapePetal(p) {
   const pos = p.geo.attributes.position.array;
   const L = p.len, W = .31 * Math.max(L, .72);
@@ -600,11 +553,10 @@ function shapePetal(p) {
       y += Math.cos(tm) * ds * L;
     }
     const th = p.tilt + p.curl * Math.pow(s, p.cexp);
-    const nr = Math.cos(th), ny = -Math.sin(th);            // normal hacia fuera en el plano radial
-    const wave = Math.sin(s * 9 + p.phi * 3) * .012 * p.open; // ondulación suave del pétalo
+    const nr = Math.cos(th), ny = -Math.sin(th);
+    const wave = Math.sin(s * 9 + p.phi * 3) * .012 * p.open;
     for (let i = 0; i <= NU; i++) {
       const u = i / NU - .5;
-      // cup: los bordes se curvan hacia dentro; keel: pliegue en V a lo largo del nervio central
       const keel = -.55 * Math.abs(u) * W * .32 * Math.sin(Math.PI * Math.min(s * 1.15, 1));
       const c = -p.cup * 4 * u * u * W * .5 + keel + wave;
       const R = p.r0 + x + nr * c, Y = y + ny * c, T = u * W;
@@ -618,12 +570,8 @@ function shapePetal(p) {
   p.geo.computeVertexNormals();
 }
 
-// estado del capullo y estado final de cada pétalo
-// cexp: dónde se concentra la curva (2,2 = repartida; 3,6 = solo la punta se enrolla)
-// capullo: la corona exterior forma la cáscara; la interior queda más erguida dentro
 const BUDS = [{tilt: .4, curl: -1.08, len: .58, cup: .6, cexp: 2.2},
               {tilt: .2, curl: -.7,  len: .52, cup: .9, cexp: 2.2}];
-// dos coronas de 6 pétalos: la exterior sale casi horizontal; la interior, más erguida
 const PETALS = [
   {az:   8, tilt: 1.18, curl: 3.5, len: 1.22, tex: 'A', ring: 0},
   {az: 188, tilt: 1.24, curl: 3.7, len: 1.18, tex: 'B', ring: 0},
@@ -638,7 +586,6 @@ const PETALS = [
   {az: 158, tilt: .90,  curl: 3.4, len: 1.03, tex: 'C', ring: 1},
   {az: 338, tilt: .94,  curl: 3.0, len: .99,  tex: 'A', ring: 1},
 ];
-// orden de apertura: corona exterior alternando lados, intercalando la interior
 const OPEN_ORDER = [0, 1, 6, 2, 7, 3, 8, 4, 9, 5, 10, 11];
 
 const loader = new THREE.TextureLoader();
@@ -661,7 +608,6 @@ PETALS.forEach((d, i) => {
   petals.push(p);
 });
 
-// estado de cada pétalo a partir de dos controles: apertura (open) y rizo (curlT)
 function updatePetal(p) {
   const o = p.open, c = p.curlT, f = p.final, b = p.bud;
   p.tilt = b.tilt + (f.tilt - b.tilt) * o;
@@ -673,7 +619,7 @@ function updatePetal(p) {
 }
 petals.forEach(updatePetal);
 
-// ---------- estambres y pistilo: tubos finos con antera ----------
+// ---- estambres ----
 const stamenMat = solidMaterial(0xc01a2c), antherMat = solidMaterial(0xc8792e), pistilMat = solidMaterial(0xd02a3e);
 const stamens = [];
 function makeStamen(az, size, pts, mat, anther) {
@@ -699,13 +645,11 @@ function makeStamen(az, size, pts, mat, anther) {
   flower.add(g);
   stamens.push(g);
 }
-// los estambres salen en diagonal y sobresalen más allá de los pétalos, curvándose hacia arriba
 const STAMEN_PTS = [[.02, .02], [.24, .22], [.52, .5], [.82, .82], [1, 1.06], [1.04, 1.18]];
 [20, 56, 92, 128, 164, 200, 236, 272, 308, 344].forEach((az, i) =>
   makeStamen(az, [1, .9, 1.08, .95, 1.04, .92, 1.06, .97, 1.02, .9][i], STAMEN_PTS, stamenMat, true));
 makeStamen(0, 1, [[0, .02], [.04, .45], [.1, .95], [.17, 1.4], [.2, 1.5]], pistilMat, false);
 
-// núcleo del capullo: rellena los huecos entre pétalos cerrados y desaparece al abrirse
 const coreMat = solidMaterial(0x6e0e1d), CORE_RED = coreMat.uniforms.uColor.value.clone();
 coreMat.uniforms.uColor.value.set(0xf2f2f5);
 const core = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), coreMat);
@@ -713,7 +657,6 @@ core.scale.set(.1, .24, .1);
 core.position.y = .25;
 flower.add(core);
 
-// base de la flor y tallo
 const ovaryMat = solidMaterial(0x5a0c18), OVARY_RED = ovaryMat.uniforms.uColor.value.clone();
 ovaryMat.uniforms.uColor.value.set(0xf2f2f5);
 const ovary = new THREE.Mesh(new THREE.SphereGeometry(.05, 14, 10), ovaryMat);
@@ -725,8 +668,7 @@ const stemMat = solidMaterial(0x4a1018), STEM_RED = stemMat.uniforms.uColor.valu
 stemMat.uniforms.uColor.value.set(0xe4e4e8);
 flower.add(new THREE.Mesh(new THREE.TubeGeometry(stemCurve, 40, .024, 8, false), stemMat));
 
-// ---------- la gota y su salpicadura ----------
-// líquido: rojo sangre profundo, un reflejo nítido de la luz y un borde iluminado (fresnel)
+// ---- gota ----
 const dropMat = new THREE.ShaderMaterial({
   uniforms: {uLight: {value: LIGHT}},
   vertexShader: `varying vec3 vN; varying vec3 vView;
@@ -741,12 +683,11 @@ const dropMat = new THREE.ShaderMaterial({
       float spec2 = pow(max(dot(reflect(-normalize(vec3(-.6, .3, .7)), n), V), 0.), 40.);
       float fres = pow(1. - max(dot(n, V), 0.), 2.5);
       vec3 c = vec3(.38, .01, .05) * (.35 + .75 * diff);
-      c += vec3(.95, .2, .25) * fres * .55;          // la luz que atraviesa el borde del líquido
+      c += vec3(.95, .2, .25) * fres * .55;
       c += vec3(1., .9, .9) * (spec * 1.4 + spec2 * .35);
       gl_FragColor = vec4(c, 1.);
     }`,
 });
-// forma de lágrima: base redonda y punta arriba (geometría de revolución)
 const tearPts = [];
 for (let i = 0; i <= 14; i++) { const a = Math.PI * i / 14; tearPts.push(new THREE.Vector2(Math.sin(a) * (i > 7 ? 1 : 1), -Math.cos(a))); }
 const tear = tearPts.filter(p => p.y <= 0);
@@ -761,9 +702,7 @@ const splash = Array.from({length: 17}, () => {
   m.visible = false; m.scale.setScalar(.012); flower.add(m); return m;
 });
 
-// ---------- el contagio: higanbanas que brotan alrededor ----------
-// Una copia de la flor ya abierta, con cada tipo de pieza fusionada en una sola malla
-// (6 dibujos por flor en vez de 36): así siete flores más siguen yendo fluidas en el móvil.
+// ---- flores alrededor ----
 const redPetalMats = {};
 for (const k of ['A', 'B', 'C']) redPetalMats[k] = petalMaterial(textures[k] || textures.A, FULL_RED);
 const stemRedMat = solidMaterial(0x4a1018);
@@ -794,7 +733,6 @@ function buildFlowerTemplate() {
   return g;
 }
 const flowerTemplate = buildFlowerTemplate();
-// [x, z, escala, altura, giro]: algunas cerca de la cámara (z positivo), otras al fondo
 const FIELD = [[-1.5, -1.1, .9, -.2, .4], [1.6, -1.5, 1, -.05, 2.1], [-2.7, -3.1, 1.1, .05, 1.2],
                [2.9, -2.7, .85, -.15, 3.3], [-1.05, 1.25, .72, -.5, 5.1], [1.25, 1.0, .68, -.55, .9], [.3, -3.5, 1.05, .15, 4.2]];
 const field = FIELD.map(([x, z, sc, y, ry]) => {
@@ -809,11 +747,9 @@ const field = FIELD.map(([x, z, sc, y, ry]) => {
   return g;
 });
 
-// ---------- cámara ----------
-// La cámara orbita alrededor de un punto del eje de la flor: distancia, elevación y altura del punto.
+// ---- cámara ----
 const cam = {dist: 1.75, el: -.05, ty: .3, yaw: 0, breathe: 1};
 function openDist() {
-  // que la flor abierta (unos 2,2 de ancho) quepa a lo ancho en vertical
   const vfov = camera.fov * Math.PI / 180;
   return THREE.MathUtils.clamp((2.25 / camera.aspect) / (2 * Math.tan(vfov / 2)), 2.6, 6.2);
 }
@@ -846,7 +782,7 @@ const touch = p => () => { p.dirty = true; };
 window.__flowerReady = true;
 G.to(hint, {opacity: .6, duration: 1.2, delay: .4});
 
-// ---------- reposo: el capullo respira y se mece ----------
+// ---- reposo ----
 let idle = [];
 if (!reduce) {
   const breath = {duration: 2.6, ease: 'sine.inOut', yoyo: true, repeat: -1};
@@ -858,7 +794,7 @@ if (!reduce) {
   ];
 }
 
-// ---------- interacción ----------
+// ---- interacción ----
 let opened = false;
 tap.addEventListener('pointerup', e => { if (e.isPrimary) open(); });
 tap.addEventListener('click', open);
@@ -866,7 +802,7 @@ tap.addEventListener('click', open);
 function open() {
   if (opened) return;
   opened = true;
-  Sound.start(); // dentro del propio toque: es lo que permite al navegador reproducir audio
+  Sound.start(); // tiene que ir dentro del toque o el navegador bloquea el audio
   tap.setAttribute('aria-disabled', 'true');
   idle.forEach(t => t.kill());
   reduce ? openReduced() : openFull();
@@ -875,23 +811,18 @@ function open() {
 function openFull() {
   const tl = G.timeline();
   const D = openDist();
-  // La gota revienta en el primer tiempo de la música; la llegada al corazón de la flor cae
-  // exactamente 6 compases después (132 BPM: un compás = 1,818 s).
   const IMPACT = .55, BAR = 60 / 132 * 4;
-  // la música entra dos tiempos después de la gota: un silencio (solo gota y lluvia) que sigue cuadrando con el ritmo
   const MUSIC = IMPACT + BAR / 2, ARRIVAL = MUSIC + 6 * BAR;
 
   tl.to(hint, {opacity: 0, y: 6, duration: .5, ease: 'power2.out'}, 0);
 
-  // 1 · la gota cae (se estira con la velocidad), se aplasta contra la flor, se hunde y se absorbe
+  // 1. cae la gota
   const SURF = DROP.value.y;
   tl.set(drop, {visible: true}, 0)
     .fromTo(drop.position, {y: 1.15}, {y: SURF + .03, duration: IMPACT, ease: 'power2.in'}, 0)
     .fromTo(drop.scale, {x: .026, y: .03, z: .026}, {x: .021, y: .046, z: .021, duration: IMPACT, ease: 'power2.in'}, 0)
-    // el impacto: se aplasta y se ensancha en un instante
     .to(drop.scale, {x: .034, y: .016, z: .034, duration: .07, ease: 'power2.out'}, IMPACT)
     .to(drop.position, {y: SURF + .006, duration: .07, ease: 'power2.out'}, IMPACT)
-    // y se hunde en la flor mientras la flor la bebe
     .to(drop.scale, {x: .014, y: .004, z: .014, duration: .5, ease: 'power2.in'}, IMPACT + .07)
     .to(drop.position, {y: SURF - .09, duration: .5, ease: 'power2.in'}, IMPACT + .07)
     .set(drop, {visible: false}, IMPACT + .62)
@@ -902,13 +833,13 @@ function openFull() {
     .to(cam, {breathe: 1, duration: .6, ease: 'power2.inOut'}, IMPACT + .14)
     .to(glowEl, {opacity: 1, scale: 1.3, duration: 1.4, ease: 'sine.out'}, IMPACT);
 
-  // 2 · el rojo se extiende por la flor como tinta en agua; el núcleo y el tallo se tiñen también
+  // 2. se tiñe de rojo
   tl.to(STAIN, {value: 2.2, duration: 2.4, ease: 'power1.inOut'}, IMPACT + .05)
     .to(coreMat.uniforms.uColor.value, {r: CORE_RED.r, g: CORE_RED.g, b: CORE_RED.b, duration: .9}, IMPACT + .1)
     .to(ovaryMat.uniforms.uColor.value, {r: OVARY_RED.r, g: OVARY_RED.g, b: OVARY_RED.b, duration: 1}, IMPACT + 1.2)
     .to(stemMat.uniforms.uColor.value, {r: STEM_RED.r, g: STEM_RED.g, b: STEM_RED.b, duration: 1.4}, IMPACT + 1.6);
 
-  // 3 · ya roja, se abre pétalo a pétalo; la cámara se aleja y sube un poco
+  // 3. se abre
   const T0 = IMPACT + .4;
   tl.to(cam, {dist: D, el: .3, ty: .22, duration: 3.4, ease: 'power2.inOut'}, T0)
     .to(cam, {yaw: '+=0.5', duration: 4.2, ease: 'sine.inOut'}, T0);
@@ -928,7 +859,7 @@ function openFull() {
     .set(core, {visible: false}, T0 + 1.2)
     .add(inkRain, T0 + .5);
 
-  // 4 · el contagio: brotan higanbanas alrededor y la cámara baja a contrapicado
+  // 4. brotan las demás
   const FIELD_T = T0 + 2.65;
   const order = [0, 4, 1, 5, 2, 3, 6];
   order.forEach((i, k) => {
@@ -942,19 +873,19 @@ function openFull() {
   tl.to(cam, {el: -.16, ty: .55, dist: D * 1.12, duration: 2.1, ease: 'power2.inOut'}, FIELD_T + .25)
     .to(cam, {yaw: '+=0.6', duration: 2.2, ease: 'sine.inOut'}, FIELD_T + .25);
 
-  // 5 · la cámara sube orbitando hasta mirar desde arriba: la flor en el centro del anillo rojo
+  // 5. vista desde arriba
   const ORBIT = ARRIVAL - 1.95 - 3.2;
   tl.to(cam, {el: 1.535, ty: .1, dist: D * .8, duration: 2.6, ease: 'power2.inOut'}, ORBIT)
     .to(cam, {yaw: '+=1.1', duration: 3.6, ease: 'sine.inOut'}, ORBIT)
     .to(glowEl, {opacity: .55, scale: 1.6, duration: 2, ease: 'sine.inOut'}, ORBIT)
     .to([ambient, ...rains], {opacity: .35, duration: 2.6, ease: 'sine.inOut'}, ORBIT);
 
-  // 6 · y desciende por el eje hasta el corazón de la flor (el golpe cae en el compás 6)
+  // 6. bajada al centro
   const DIVE = ARRIVAL - 1.95;
   tl.to(cam, {dist: .06, ty: .04, duration: 2, ease: 'power3.in'}, DIVE)
     .add(Sound.dive, DIVE)
-    .add(Sound.stop, DIVE + 1.6)      // la música se corta 0,35 s antes de llegar
-    .add(Sound.arrive, DIVE + 1.82)   // el golpe (pico a 0,13 s) cae justo al llegar
+    .add(Sound.stop, DIVE + 1.6)
+    .add(Sound.arrive, DIVE + 1.82)
     .to(flash, {keyframes: {opacity: [0, .1, 0]}, duration: .5, ease: 'none'}, DIVE + 1.55)
     .to([canvas, glowEl], {opacity: 0, duration: .6, ease: 'power1.in'}, DIVE + 1.45)
     .to([ambient, ...rains], {opacity: 0, duration: 1, ease: 'power2.in'}, DIVE + .6)
@@ -962,11 +893,9 @@ function openFull() {
     .add(goInside, DIVE + 2.1);
 }
 
-// la salpicadura: gotitas que saltan desde la punta del capullo y caen
 function splashOut() {
   const o = DROP.value;
   splash.forEach((m, i) => {
-    // 14 gotitas en corona y 3 gotas gordas que suben más y caen más lentas por fuera
     const big = i >= splash.length - 3;
     const a = (i / splash.length) * Math.PI * 2 + R(-.3, .3);
     const sp = big ? R(.18, .26) : R(.08, .2), up = big ? R(.16, .24) : R(.05, .14), d = big ? R(.7, .85) : R(.45, .62);
@@ -980,7 +909,6 @@ function splashOut() {
 }
 
 function openReduced() {
-  // versión sin desplazamientos: fundido al estado abierto visto desde arriba y fundido a la carta
   G.timeline()
     .to([hint, canvas], {opacity: 0, duration: .5}, 0)
     .add(() => {
@@ -1000,7 +928,7 @@ function openReduced() {
     .add(goInside, 4);
 }
 
-// ---------- partículas ----------
+// ---- partículas ----
 const R = G.utils.random;
 function spawn(cls, w) {
   const el = document.createElement('span');
@@ -1054,10 +982,9 @@ function embers() {
   }
 }
 
-// ---------- dentro de la flor ----------
+// ---- dentro de la flor ----
 function goInside() {
   Sound.inside();
-  // el 3D ya no se ve: se detiene y se libera la memoria de la GPU
   running = false;
   G.ticker.remove(render);
   renderer.dispose();
@@ -1078,18 +1005,14 @@ function goInside() {
   startReading();
 }
 
-// Cada párrafo aparece cuando entra en pantalla al hacer scroll (sin temporizador).
-// Si alguien baja rápido, los párrafos que ya quedaron por encima se muestran directamente.
+// párrafos: aparecen al entrar en pantalla
 function startReading() {
   const shown = new Set();
-  const fades = new Map(); // fundidos en curso, por párrafo
-  // se sigue vigilando el párrafo hasta que está del todo visible: si ella lo sobrepasa
-  // a medio fundir, el observador lo detecta y lo completa al instante
+  const fades = new Map();
   const markShown = p => {
     shown.add(p);
     if (p.classList.contains('signoff')) Sound.signoff();
   };
-  // entra en pantalla: aparece con un fundido suave
   const fadeIn = (p, delay) => {
     if (shown.has(p)) return;
     markShown(p);
@@ -1097,11 +1020,9 @@ function startReading() {
     fades.set(p, G.to(p, {opacity: 1, y: 0, duration: sign ? 2.4 : 1.6, delay, ease: 'power2.out',
       onComplete: () => { fades.delete(p); io.unobserve(p); }}));
   };
-  // ya pasó de largo (quedó por encima): se muestra al instante,
-  // también si estaba a medio fundido cuando ella bajó de golpe
   const showNow = p => {
     const fade = fades.get(p);
-    if (fade) { fade.progress(1); return; }   // completa el fundido (su onComplete deja de vigilarlo)
+    if (fade) { fade.progress(1); return; }
     if (shown.has(p)) return;
     markShown(p);
     io.unobserve(p);
@@ -1110,7 +1031,6 @@ function startReading() {
   const passed = p => p.getBoundingClientRect().bottom < 0 && (!shown.has(p) || fades.has(p));
 
   const io = new IntersectionObserver(entries => {
-    // los que entran a la vez (p. ej. al llegar a la carta) se escalonan un poco, en orden
     const entering = entries.filter(e => e.isIntersecting)
       .sort((a, b) => reveal.indexOf(a.target) - reveal.indexOf(b.target));
     entering.forEach((e, i) => fadeIn(e.target, i * .18));
@@ -1118,8 +1038,6 @@ function startReading() {
   }, {rootMargin: '0px 0px -8% 0px'});
   reveal.forEach(p => io.observe(p));
 
-  // con un scroll muy rápido un párrafo puede saltar de abajo a arriba sin llegar a «entrar»:
-  // en cada scroll se muestran al instante los que ya están por encima de la pantalla
   let ticking = false;
   function onScroll() {
     if (ticking) return;
